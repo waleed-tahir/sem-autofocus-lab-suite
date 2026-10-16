@@ -9,7 +9,9 @@ import {
   Moon, 
   ChevronDown,
   FolderOpen,
-  Search
+  Minus,
+  Square,
+  X
 } from 'lucide-react';
 
 export default function Titlebar({ 
@@ -24,95 +26,122 @@ export default function Titlebar({
   onOpenPathModal
 }) {
   return (
-    <header className="groove-header">
-      {/* Groove Pivot View Tabs (Horizontal line indicator) */}
-      <nav className="groove-tabs">
+    <header className="matte-command-bar">
+      {/* Pivot View Tabs (Flat, 2px underline indicator) */}
+      <nav className="matte-nav-tabs">
         <button 
-          className={`groove-tab ${currentTab === 'studio' ? 'active' : ''}`}
+          className={`matte-nav-tab ${currentTab === 'studio' ? 'active' : ''}`}
           onClick={() => setCurrentTab('studio')}
         >
-          <Sliders size={14} />
-          Studio
+          <Sliders size={14} strokeWidth={1.25} />
+          <span>Studio</span>
         </button>
         <button 
-          className={`groove-tab ${currentTab === 'curves' ? 'active' : ''}`}
+          className={`matte-nav-tab ${currentTab === 'curves' ? 'active' : ''}`}
           onClick={() => setCurrentTab('curves')}
         >
-          <Activity size={14} />
-          10-FMO Curves
+          <Activity size={14} strokeWidth={1.25} />
+          <span>10-FMO Curves</span>
         </button>
         <button 
-          className={`groove-tab ${currentTab === 'leaderboard' ? 'active' : ''}`}
+          className={`matte-nav-tab ${currentTab === 'leaderboard' ? 'active' : ''}`}
           onClick={() => setCurrentTab('leaderboard')}
         >
-          <Trophy size={14} />
-          Leaderboard
+          <Trophy size={14} strokeWidth={1.25} />
+          <span>Leaderboard</span>
         </button>
         <button 
-          className={`groove-tab ${currentTab === 'inspector' ? 'active' : ''}`}
+          className={`matte-nav-tab ${currentTab === 'inspector' ? 'active' : ''}`}
           onClick={() => setCurrentTab('inspector')}
         >
-          <ZoomIn size={14} />
-          Loupe
+          <ZoomIn size={14} strokeWidth={1.25} />
+          <span>Loupe</span>
         </button>
         <button 
-          className={`groove-tab ${currentTab === 'guide' ? 'active' : ''}`}
+          className={`matte-nav-tab ${currentTab === 'guide' ? 'active' : ''}`}
           onClick={() => setCurrentTab('guide')}
         >
-          <BookOpen size={14} />
-          Guide
+          <BookOpen size={14} strokeWidth={1.25} />
+          <span>Guide</span>
         </button>
       </nav>
 
       {/* Right Controls: Choose Folder, Dataset Switcher, Status, Theme */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {/* Choose Dataset Folder Button */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        {/* Dataset Path Selector Link */}
         <button 
-          className="groove-btn-action"
+          className="matte-link-cyan"
           onClick={onOpenPathModal}
           title="Select Datasets Directory / Path"
         >
-          <FolderOpen size={13} color="var(--accent-cyan)" />
+          <FolderOpen size={13} strokeWidth={1.25} />
           <span>Datasets Path</span>
         </button>
 
         {/* Dataset Switcher Dropdown */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <select 
-              className="groove-select" 
-              value={currentDataset}
-              onChange={(e) => setCurrentDataset(e.target.value)}
-            >
-              {datasets.map(ds => (
-                <option key={ds.id} value={ds.id}>
-                  {ds.name} ({ds.regime ? ds.regime.split(' ')[0] : 'Stack'})
-                </option>
-              ))}
-            </select>
-            <ChevronDown 
-              size={12} 
-              color="var(--text-secondary)" 
-              style={{ position: 'absolute', right: '8px', pointerEvents: 'none' }} 
-            />
-          </div>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <select 
+            className="matte-select" 
+            value={currentDataset}
+            onChange={(e) => setCurrentDataset(e.target.value)}
+          >
+            {datasets.map(ds => (
+              <option key={ds.id} value={ds.id}>
+                {ds.name} ({ds.regime ? ds.regime.split(' ')[0] : 'Stack'})
+              </option>
+            ))}
+          </select>
+          <ChevronDown 
+            size={12} 
+            color="var(--text-secondary)" 
+            style={{ position: 'absolute', right: '8px', pointerEvents: 'none' }} 
+          />
         </div>
 
         {/* Server Status Indicator */}
-        <div className={`badge-pill ${serverStatus ? 'badge-green' : 'badge-amber'}`} style={{ fontSize: '11px', padding: '3px 8px' }}>
-          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: serverStatus ? '#107C41' : '#D83B01' }} />
-          {serverStatus ? 'Ready' : 'Offline'}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+          <span style={{ 
+            width: '6px', 
+            height: '6px', 
+            background: serverStatus ? 'var(--status-success)' : 'var(--status-danger)' 
+          }} />
+          <span className="mono-metric">{serverStatus ? 'Ready' : 'Offline'}</span>
         </div>
 
-        {/* Theme Toggle */}
+        {/* Theme Toggle Wireframe Button */}
         <button 
-          className="groove-icon-btn"
+          className="matte-wireframe-btn"
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          style={{ width: '30px', height: '30px' }}
+          style={{ width: '28px', height: '28px' }}
         >
-          {theme === 'dark' ? <Sun size={13} color="#D83B01" /> : <Moon size={13} color="#00B7C3" />}
+          {theme === 'dark' ? <Sun size={14} strokeWidth={1.25} color="var(--status-warning)" /> : <Moon size={14} strokeWidth={1.25} color="var(--accent-cyan)" />}
         </button>
+
+        {/* Chromeless Window Management Controls (Section 1.1 & 4) */}
+        <div className="matte-window-controls">
+          <button 
+            className="matte-win-btn" 
+            title="Minimize"
+            onClick={() => {}}
+          >
+            <Minus size={13} strokeWidth={1.25} />
+          </button>
+          <button 
+            className="matte-win-btn" 
+            title="Maximize"
+            onClick={() => {}}
+          >
+            <Square size={11} strokeWidth={1.25} />
+          </button>
+          <button 
+            className="matte-win-btn matte-win-btn-close" 
+            title="Close"
+            onClick={() => {}}
+          >
+            <X size={14} strokeWidth={1.25} />
+          </button>
+        </div>
       </div>
     </header>
   );

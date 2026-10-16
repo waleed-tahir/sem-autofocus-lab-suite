@@ -5,8 +5,9 @@ import {
   Eye, 
   Maximize2, 
   Sliders, 
-  ShieldCheck, 
-  Sparkles 
+  Sparkles,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 export default function StackInspector({ 
@@ -18,7 +19,7 @@ export default function StackInspector({
   const [showRois, setShowRois] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(3);
   const [loupeActive, setLoupeActive] = useState(false);
-  const [loupePos, setLoupePos] = useState({ x: 0, y: 0 });
+  const [loupePos, setLoupePos] = useState({ x: 0, y: 0, width: 0, height: 0 });
 
   const imgRef = useRef(null);
   const totalFrames = 200;
@@ -43,62 +44,72 @@ export default function StackInspector({
   const frameUrl = `/api/frame/${currentDataset}/${frameIdx}?overlay_rois=${showRois}&anscombe=${useAnscombe}`;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Header Banner */}
-      <div className="glass-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 22px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(0, 229, 255, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <ZoomIn size={20} color="#00E5FF" />
-          </div>
-          <div>
-            <h2 style={{ fontSize: '16px', fontWeight: '600' }}>Micrograph Stack & Interactive 4x Loupe Inspector</h2>
-            <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-              Inspect high-magnification specimen edge sharpness, beam shot grain, and Anscombe noise conversion
-            </p>
-          </div>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '32px' }}>
+      {/* Zone 2: Hero Header Zone */}
+      <section className="matte-hero-zone">
+        <div>
+          <h1 className="matte-hero-title">
+            Loupe Inspector (4x)
+          </h1>
+          <p className="matte-hero-bio">
+            High-magnification pixel-level scrutiny of SEM specimen edges, beam shot Poisson noise, and Anscombe square-root stabilization across focal slices.
+          </p>
         </div>
 
-        {/* Preset Quick Focus Jumps */}
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button 
-            className="btn-macos-secondary"
-            onClick={() => setFrameIdx(30)}
-            style={{ fontSize: '12px' }}
-          >
-            Under-Focus (z = 30)
-          </button>
-          <button 
-            className="btn-macos-secondary"
-            onClick={() => setFrameIdx(75)}
-            style={{ fontSize: '12px' }}
-          >
-            Near Focus (z = 75)
-          </button>
-          <button 
-            className="btn-macos-primary"
-            onClick={() => setFrameIdx(96)}
-            style={{ fontSize: '12px', padding: '6px 14px' }}
-          >
-            ★ True In-Focus (z = 96)
-          </button>
-          <button 
-            className="btn-macos-secondary"
-            onClick={() => setFrameIdx(160)}
-            style={{ fontSize: '12px' }}
-          >
-            Over-Focus (z = 160)
-          </button>
+        {/* Action Cluster: Preset Focal Jumps */}
+        <div className="matte-action-cluster">
+          <div className="matte-action-cluster-tag">
+            RAPID FOCAL PLANE PRESETS
+          </div>
+          <div className="matte-action-icons">
+            <button 
+              className="matte-btn-secondary"
+              onClick={() => setFrameIdx(30)}
+              style={{ height: '28px', padding: '0 10px', fontSize: '11px' }}
+            >
+              Under-Focus (z=30)
+            </button>
+            <button 
+              className="matte-btn-secondary"
+              onClick={() => setFrameIdx(75)}
+              style={{ height: '28px', padding: '0 10px', fontSize: '11px' }}
+            >
+              Near-Focus (z=75)
+            </button>
+            <button 
+              className="matte-btn-primary"
+              onClick={() => setFrameIdx(96)}
+              style={{ height: '28px', padding: '0 10px', fontSize: '11px' }}
+            >
+              ★ True Peak (z=96)
+            </button>
+            <button 
+              className="matte-btn-secondary"
+              onClick={() => setFrameIdx(160)}
+              style={{ height: '28px', padding: '0 10px', fontSize: '11px' }}
+            >
+              Over-Focus (z=160)
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Main Inspection Canvas */}
-      <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* Main Inspection Canvas Card (0px Rectilinear Matte Card) */}
+      <div className="matte-card">
         {/* Controls Toolbar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
-          {/* Continuous Z-Slider */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: '300px' }}>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          flexWrap: 'wrap', 
+          gap: '16px', 
+          borderBottom: '1px solid var(--border-subtle)', 
+          paddingBottom: '14px' 
+        }}>
+          {/* Continuous Z-Slider (Section 6.2 custom slider: 2px track, 3x14px thumb) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: '320px' }}>
             <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)' }}>
-              Focal Plane:
+              Focal Slice:
             </span>
             <input 
               type="range"
@@ -106,40 +117,40 @@ export default function StackInspector({
               max={totalFrames - 1}
               value={frameIdx}
               onChange={(e) => setFrameIdx(parseInt(e.target.value))}
-              style={{ flex: 1, accentColor: 'var(--accent-blue)', cursor: 'pointer' }}
+              className="matte-slider"
             />
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: '700', minWidth: '80px', color: frameIdx === 96 ? '#30D158' : 'var(--text-primary)' }}>
+            <span className="mono-metric" style={{ fontSize: '13px', fontWeight: '600', minWidth: '90px', color: frameIdx === 96 ? 'var(--status-success)' : 'var(--text-primary)' }}>
               z = {frameIdx} {frameIdx === 96 && '★ Peak'}
             </span>
           </div>
 
           {/* Toggles */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', cursor: 'pointer', color: 'var(--text-secondary)' }}>
               <input 
                 type="checkbox"
                 checked={useAnscombe}
                 onChange={(e) => setUseAnscombe(e.target.checked)}
-                style={{ accentColor: 'var(--accent-blue)' }}
+                style={{ width: '14px', height: '14px', accentColor: 'var(--accent-cyan)' }}
               />
-              Anscombe Stabilized
+              <span>Anscombe Stabilized</span>
             </label>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', cursor: 'pointer', color: 'var(--text-secondary)' }}>
               <input 
                 type="checkbox"
                 checked={showRois}
                 onChange={(e) => setShowRois(e.target.checked)}
-                style={{ accentColor: 'var(--accent-blue)' }}
+                style={{ width: '14px', height: '14px', accentColor: 'var(--accent-cyan)' }}
               />
-              Dynamic 9-Zone ROIs
+              <span>Dynamic 9-Zone ROIs</span>
             </label>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Loupe Zoom:</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Zoom:</span>
               <select 
-                className="macos-select"
-                style={{ padding: '3px 8px', fontSize: '11px' }}
+                className="matte-select"
+                style={{ padding: '3px 20px 3px 8px', fontSize: '11.5px' }}
                 value={zoomLevel}
                 onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
               >
@@ -152,20 +163,19 @@ export default function StackInspector({
           </div>
         </div>
 
-        {/* Micrograph Canvas with Interactive Circular Loupe */}
+        {/* Micrograph Canvas with Interactive Rectilinear Loupe (Strict 0px Geometry) */}
         <div 
           style={{ 
             position: 'relative', 
             width: '100%', 
-            height: '520px', 
-            background: '#0a0a0c', 
-            borderRadius: '12px', 
+            height: '540px', 
+            background: '#0E0E10', 
+            border: '1px solid var(--border-subtle)',
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            cursor: 'crosshair',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
+            cursor: 'crosshair'
           }}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
@@ -177,21 +187,19 @@ export default function StackInspector({
             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
           />
 
-          {/* Floating Magnifying Loupe Lens */}
+          {/* Floating Rectilinear Magnifying Loupe Viewport (Strict 0px Radius, 1px Border) */}
           {loupeActive && imgRef.current && (
             <div 
               style={{
                 position: 'absolute',
-                top: `${loupePos.y - 85}px`,
-                left: `${loupePos.x - 85}px`,
-                width: '170px',
-                height: '170px',
-                borderRadius: '50%',
-                border: '3px solid #00E5FF',
-                boxShadow: '0 0 25px rgba(0, 229, 255, 0.5), inset 0 0 15px rgba(0,0,0,0.4)',
+                top: `${loupePos.y - 90}px`,
+                left: `${loupePos.x - 90}px`,
+                width: '180px',
+                height: '180px',
+                border: '1px solid var(--accent-cyan)',
                 pointerEvents: 'none',
                 overflow: 'hidden',
-                background: '#000',
+                background: '#0E0E10',
                 zIndex: 10
               }}
             >
@@ -201,42 +209,39 @@ export default function StackInspector({
                   height: `${loupePos.height * zoomLevel}px`,
                   backgroundImage: `url(${frameUrl})`,
                   backgroundSize: `${loupePos.width * zoomLevel}px ${loupePos.height * zoomLevel}px`,
-                  backgroundPosition: `${-loupePos.x * zoomLevel + 85}px ${-loupePos.y * zoomLevel + 85}px`,
+                  backgroundPosition: `${-loupePos.x * zoomLevel + 90}px ${-loupePos.y * zoomLevel + 90}px`,
                   backgroundRepeat: 'no-repeat'
                 }}
               />
               <div style={{
                 position: 'absolute',
-                bottom: '8px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: 'rgba(0, 0, 0, 0.75)',
-                color: '#00E5FF',
+                bottom: '6px',
+                left: '6px',
+                background: 'rgba(24, 24, 25, 0.92)',
+                color: 'var(--accent-cyan)',
                 fontSize: '10px',
-                fontWeight: '700',
-                padding: '2px 8px',
-                borderRadius: '10px'
-              }}>
-                {zoomLevel}x Loupe
+                fontWeight: '600',
+                padding: '2px 6px',
+                border: '1px solid var(--border-subtle)'
+              }} className="tabular-nums">
+                {zoomLevel}x LOUPE
               </div>
             </div>
           )}
 
-          {/* Info Badge */}
+          {/* Minimal Telemetry Badge (Strict 0px Geometry) */}
           <div style={{
             position: 'absolute',
-            bottom: '16px',
-            right: '16px',
-            background: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            padding: '8px 14px',
-            borderRadius: '10px',
-            fontSize: '11.5px',
-            color: '#fff',
+            bottom: '12px',
+            right: '12px',
+            background: 'rgba(24, 24, 25, 0.92)',
+            border: '1px solid var(--border-subtle)',
+            padding: '6px 12px',
+            fontSize: '11px',
+            color: 'var(--text-secondary)',
             display: 'flex',
             gap: '16px'
-          }}>
+          }} className="tabular-nums">
             <span><b>Resolution:</b> 1024 × 768</span>
             <span><b>Dataset:</b> {currentDataset}</span>
             <span><b>Mode:</b> {useAnscombe ? 'Anscombe Stabilized' : 'Raw Micrograph'}</span>

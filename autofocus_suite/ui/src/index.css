@@ -1,70 +1,49 @@
-/* Windows 10 Groove Music & Fluent Design System */
+/* Dark Matte UI — Neo-Metro / Early Fluent Minimalism Design System */
+/* Based strictly on dark_matte_ui_design_system.md specification */
 
 :root {
   --font-sans: "Segoe UI", "Segoe UI Variable Text", system-ui, -apple-system, sans-serif;
   --font-mono: "Cascadia Code", "Consolas", "Courier New", monospace;
 
-  /* Windows 10 Groove Dark Theme (Deep Slate / Charcoal) */
-  --bg-app: #18191E;
-  --bg-canvas: #15161A;
-  --bg-titlebar: #18191E;
-  --bg-sidebar: #1E1F24;
-  --bg-card: #22242B;
-  --bg-card-hover: #292B34;
-  --bg-surface: rgba(255, 255, 255, 0.05);
-  --bg-surface-hover: rgba(255, 255, 255, 0.08);
-  --bg-surface-active: rgba(255, 255, 255, 0.12);
+  /* Surface & Background Tokens (Section 2.1) */
+  --bg-canvas-primary: #181819;
+  --bg-sidebar-acrylic: rgba(36, 37, 39, 0.85);
+  --bg-surface-hover: rgba(255, 255, 255, 0.05);
+  --bg-surface-active: rgba(255, 255, 255, 0.09);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-card: #2E2F33;
 
-  --border-subtle: rgba(255, 255, 255, 0.10);
-  --border-card: #2D3039;
-  --border-focus: #00B7C3;
-
+  /* Typography & Iconography Tokens (Section 2.2) */
   --text-primary: #FFFFFF;
-  --text-secondary: #B4B6BC;
-  --text-tertiary: #7A7C85;
+  --text-secondary: #9A9B9E;
+  --text-muted: #6E7074;
 
-  /* Microsoft Groove Colors */
-  --accent-cyan: #00B7C3;
-  --accent-cyan-hover: #00D2DF;
-  --accent-blue: #0078D4;
-  --accent-green: #107C41;
-  --accent-amber: #D83B01;
-  --accent-purple: #8764B8;
-  --accent-red: #E81123;
+  /* Brand & Semantic Micro-Accent Tokens (Section 2.3) */
+  --accent-cyan: #00C3F9;
+  --accent-cyan-hover: #40D4FF;
+  --status-warning: #F5A623;
+  --status-danger: #E81123;
+  --status-success: #107C41;
 
-  /* Windows 10 Geometry: crisp 4px-6px corners */
-  --radius-xs: 2px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  /* The Corner Radius Law (Section 5.1): STRICTLY 0px RECTILINEAR */
+  --radius-sharp: 0px;
 
-  --shadow-fluent: 0 4px 12px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--border-subtle);
-  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.25);
-  --shadow-depth: 0 8px 24px rgba(0, 0, 0, 0.45);
+  /* Zero Drop Shadows: Surface Depth via Materiality Only (Section 1.2) */
+  --shadow-none: none;
 }
 
 [data-theme="light"] {
-  --bg-app: #F3F3F5;
-  --bg-canvas: #EBECEF;
-  --bg-titlebar: #FFFFFF;
-  --bg-sidebar: #F7F8FA;
-  --bg-card: #FFFFFF;
-  --bg-card-hover: #FAFAFB;
-  --bg-surface: rgba(0, 0, 0, 0.04);
-  --bg-surface-hover: rgba(0, 0, 0, 0.07);
-  --bg-surface-active: rgba(0, 0, 0, 0.10);
-
-  --border-subtle: rgba(0, 0, 0, 0.12);
-  --border-card: #E1E3E8;
-  --border-focus: #0078D4;
-
-  --text-primary: #1F1F1F;
-  --text-secondary: #5A5D64;
-  --text-tertiary: #8C8E96;
-
-  --shadow-fluent: 0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--border-subtle);
-  --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.06);
-  --shadow-depth: 0 8px 20px rgba(0, 0, 0, 0.12);
+  --bg-canvas-primary: #F4F4F6;
+  --bg-sidebar-acrylic: rgba(235, 236, 240, 0.9);
+  --bg-surface-hover: rgba(0, 0, 0, 0.04);
+  --bg-surface-active: rgba(0, 0, 0, 0.08);
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-card: #D8D9DE;
+  --text-primary: #111214;
+  --text-secondary: #5C5E64;
+  --text-muted: #8C8E94;
+  --accent-cyan: #0078D4;
+  --accent-cyan-hover: #1084D9;
 }
 
 * {
@@ -72,488 +51,704 @@
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: subpixel-antialiased;
+  border-radius: 0px !important; /* Strict 0px Corner Radius Law (Section 5.1) */
 }
 
 body {
   font-family: var(--font-sans);
-  background: var(--bg-canvas);
+  background: var(--bg-canvas-primary);
   color: var(--text-primary);
   min-height: 100vh;
   overflow: hidden;
   user-select: none;
   font-size: 13px;
+  line-height: 1.4;
 }
 
-/* Windows 10 Shell Layout */
-.win-app-shell {
+/* Numeric Discipline (Section 3) */
+.tabular-nums, 
+[data-tabular="true"],
+.mono-metric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ------------------------------------------------------------- */
+/* THREE-ZONE DESKTOP ARCHITECTURE (Section 4)                    */
+/* ------------------------------------------------------------- */
+
+.matte-app-shell {
   width: 100vw;
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--bg-app);
+  background: var(--bg-canvas-primary);
 }
 
-/* Groove Music Command Header */
-.groove-header {
+/* Chromeless Top Navigation / Command Bar */
+.matte-command-bar {
   height: 44px;
   min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 18px;
-  background: var(--bg-titlebar);
+  padding: 0 24px 0 16px;
+  background: transparent;
   border-bottom: 1px solid var(--border-subtle);
-  gap: 16px;
+  z-index: 10;
 }
 
-/* Groove Pivot Tabs */
-.groove-tabs {
+.matte-nav-tabs {
   display: flex;
   align-items: center;
   height: 100%;
-  gap: 6px;
+  gap: 8px;
 }
 
-.groove-tab {
+.matte-nav-tab {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   height: 100%;
-  padding: 0 12px;
+  padding: 0 14px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary);
   background: transparent;
   border: none;
-  border-bottom: 3px solid transparent;
+  border-bottom: 2px solid transparent;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: color 0.1s ease;
 }
 
-.groove-tab:hover {
+.matte-nav-tab:hover {
   color: var(--text-primary);
-  background: var(--bg-surface-hover);
 }
 
-.groove-tab.active {
+.matte-nav-tab.active {
   color: var(--text-primary);
   font-weight: 600;
-  border-bottom: 3px solid var(--accent-cyan);
+  border-bottom: 2px solid var(--accent-cyan);
 }
 
-/* Groove Action & Icon Buttons */
-.groove-btn-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
-  padding: 5px 10px;
-  font-size: 12px;
-  font-weight: 500;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all 0.12s ease;
-}
-
-.groove-btn-action:hover {
-  background: var(--bg-surface-hover);
-  border-color: var(--accent-cyan);
-}
-
-.groove-icon-btn {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-secondary);
-  border-radius: var(--radius-sm);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.12s ease;
-}
-
-.groove-icon-btn:hover {
-  background: var(--bg-surface-hover);
-  color: var(--text-primary);
-}
-
-.groove-select {
-  background: #252830;
-  color: #FFFFFF;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 4px 26px 4px 10px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-}
-
-/* Windows 10 App Work Area */
-.win-work-area {
+/* Work Area Container */
+.matte-work-area {
   display: flex;
   flex: 1;
   overflow: hidden;
 }
 
-/* Groove Music Left Sidebar */
-.groove-sidebar {
-  width: 250px;
-  min-width: 250px;
-  background: var(--bg-sidebar);
+/* ------------------------------------------------------------- */
+/* ZONE 1: LEFT NAVIGATION RAIL (240px Fixed, Acrylic)            */
+/* ------------------------------------------------------------- */
+
+.matte-nav-rail {
+  width: 240px;
+  min-width: 240px;
+  max-width: 240px;
+  background: var(--bg-sidebar-acrylic);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  padding: 12px 0;
+  padding: 16px 0;
   overflow-y: auto;
+  z-index: 5;
 }
 
-.groove-sidebar-brand {
+.matte-rail-brand {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 16px 14px;
+  padding: 0 16px 16px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.groove-sidebar-heading {
+.matte-rail-heading {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.6px;
-  padding: 8px 16px 4px;
+  letter-spacing: 0.06em;
+  padding: 12px 16px 6px;
 }
 
-.groove-sidebar-item {
+/* Rail Navigation Item (40px row, 16px icon-label gap, 3x16px indicator) */
+.matte-rail-item {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
+  gap: 16px;
+  height: 40px;
+  padding: 0 16px;
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 400;
   background: transparent;
   border: none;
-  border-left: 3px solid transparent;
   width: 100%;
   text-align: left;
   cursor: pointer;
-  transition: all 0.1s ease;
-  border-radius: 0;
+  transition: background 0.1s ease, color 0.1s ease;
 }
 
-.groove-sidebar-item:hover {
+.matte-rail-item:hover {
   background: var(--bg-surface-hover);
   color: var(--text-primary);
 }
 
-/* Signature Groove Cyan Active Border Indicator */
-.groove-sidebar-item.active {
-  background: var(--bg-surface-active);
-  color: #FFFFFF;
+/* Active State Anatomy: 3px x 16px cyan bar anchored 4px from edge */
+.matte-rail-item.active {
+  color: var(--text-primary);
   font-weight: 600;
-  border-left: 3px solid var(--accent-cyan);
+  background: transparent;
 }
 
-.groove-path-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 7px 10px;
-  width: 100%;
-  cursor: pointer;
-  transition: all 0.12s ease;
+.matte-rail-item.active::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 12px;
+  width: 3px;
+  height: 16px;
+  background-color: var(--accent-cyan);
 }
 
-.groove-path-btn:hover {
+.matte-rail-item:hover.active {
   background: var(--bg-surface-hover);
-  border-color: var(--accent-cyan);
 }
 
-.groove-sidebar-footer {
-  padding: 10px 14px 4px;
+.matte-rail-footer {
+  padding: 14px 16px 0;
   border-top: 1px solid var(--border-subtle);
+  margin-top: auto;
+}
+
+/* ------------------------------------------------------------- */
+/* ZONE 2 & 3: PRIMARY WORKSPACE WITH HERO & SPLIT WORKSPACE      */
+/* ------------------------------------------------------------- */
+
+.matte-primary-workspace {
+  flex: 1;
+  overflow-y: auto;
+  padding: 36px 48px 48px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-canvas-primary);
+}
+
+/* Hero Header Zone (Section 4.2) */
+.matte-hero-zone {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: 40px;
+}
+
+.matte-hero-title {
+  font-size: 42px;
+  line-height: 48px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.matte-hero-bio {
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--text-secondary);
+  max-width: 460px;
+  letter-spacing: 0.01em;
   margin-top: 6px;
 }
 
-/* Main Content Area */
-.win-main-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px 26px 36px;
+/* Header Action Cluster (Right side of Hero Zone) */
+.matte-action-cluster {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  align-items: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
-/* Groove Hero Banner */
-.groove-hero {
+.matte-action-cluster-tag {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.matte-action-icons {
   display: flex;
   align-items: center;
   gap: 24px;
-  padding: 22px 24px;
-  background: linear-gradient(180deg, rgba(0, 183, 195, 0.08) 0%, rgba(24, 25, 30, 0) 100%);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
 }
 
-.groove-hero-avatar {
-  width: 110px;
-  height: 110px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 3px solid rgba(0, 183, 195, 0.4);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  flex-shrink: 0;
-  background: #101114;
+/* Wireframe Action Language (Section 1.3 & Section 5.2) */
+.matte-wireframe-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  transition: transform 0.08s ease, color 0.1s ease;
 }
 
-.groove-hero-title {
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
-  line-height: 1.15;
+.matte-wireframe-btn:hover {
   color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.06);
 }
 
-.groove-hero-desc {
-  font-size: 12.5px;
-  color: var(--text-secondary);
-  line-height: 1.4;
-  margin-top: 4px;
-  max-width: 600px;
+.matte-wireframe-btn:active {
+  transform: scale(0.92);
 }
 
-.groove-hero-actions {
+.matte-wireframe-btn svg {
+  stroke-width: 1.25px;
+}
+
+/* Micro / Inline Action Link (Section 3.1) */
+.matte-link-cyan {
+  font-size: 11px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--accent-cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.1s ease;
+}
+
+.matte-link-cyan:hover {
+  color: var(--accent-cyan-hover);
+}
+
+/* ------------------------------------------------------------- */
+/* ZONE 3: LOWER SPLIT WORKSPACE (Section 4.3)                    */
+/* ------------------------------------------------------------- */
+
+.matte-split-workspace {
+  display: flex;
+  gap: 48px; /* Minimum 48px gutter */
+  width: 100%;
+}
+
+/* Primary Content Column (Left, Fluid 65%-70%) */
+.matte-primary-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+}
+
+/* Right Context Rail (Fixed 280px-300px) */
+.matte-context-rail {
+  width: 290px;
+  min-width: 290px;
+  max-width: 290px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Section Header H2 */
+.matte-section-h2 {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 12px;
+  justify-content: space-between;
 }
 
-.groove-btn-play {
-  background: var(--accent-cyan);
-  color: #000000;
-  font-weight: 700;
-  font-size: 13px;
-  padding: 7px 18px;
-  border-radius: var(--radius-sm);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  border: none;
-  transition: transform 0.1s ease, filter 0.15s ease;
-}
-
-.groove-btn-play:hover {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
-}
-
-.groove-btn-play:active {
-  transform: translateY(0);
-}
-
-/* Windows 10 Fluent Cards (Crisp 4px-6px borders) */
-.win-card, .glass-card {
-  background: var(--bg-card);
+/* Chromeless Flat Matte Card (Materiality, Not Shadows) */
+.matte-card {
+  background: #1C1D20;
   border: 1px solid var(--border-card);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card);
-  padding: 18px;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.win-card:hover, .glass-card:hover {
-  border-color: rgba(255, 255, 255, 0.22);
-}
-
-/* Windows 10 Buttons */
-.btn-fluent-primary, .btn-macos-primary {
-  display: inline-flex;
+/* Right Context Rail Stacked Items (64x64 square thumbnail + text) */
+.matte-context-item {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: var(--accent-blue);
-  color: #FFFFFF;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  padding: 7px 16px;
+  gap: 12px;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+}
+
+.matte-context-item:hover {
+  background: var(--bg-surface-hover);
+}
+
+.matte-context-item.active {
+  background: var(--bg-surface-active);
+  position: relative;
+}
+
+.matte-context-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--accent-cyan);
+}
+
+.matte-context-thumb {
+  width: 64px;
+  height: 64px;
+  background: #101114;
+  border: 1px solid var(--border-subtle);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.matte-context-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.matte-context-title {
   font-size: 13px;
   font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  transition: background 0.12s ease, transform 0.1s ease;
-}
-
-.btn-fluent-primary:hover, .btn-macos-primary:hover {
-  background: var(--accent-blue-hover);
-}
-
-.btn-fluent-primary:active, .btn-macos-primary:active {
-  background: var(--accent-blue-active);
-}
-
-.btn-fluent-secondary, .btn-macos-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  background: var(--bg-surface);
   color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 6px 14px;
-  font-size: 12.5px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.12s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.btn-fluent-secondary:hover, .btn-macos-secondary:hover {
-  background: var(--bg-surface-hover);
-  border-color: rgba(255, 255, 255, 0.25);
+.matte-context-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Windows 10 Badges */
-.badge-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
-  border-radius: var(--radius-xs);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1px;
-}
+/* ------------------------------------------------------------- */
+/* NUMBERED TABLE ROWS (Section 4.3 & 6.1)                       */
+/* Zero horizontal dividers, vertical whitespace separation     */
+/* ------------------------------------------------------------- */
 
-.badge-blue { background: rgba(0, 120, 212, 0.18); color: #2B88D8; border: 1px solid rgba(0, 120, 212, 0.4); }
-.badge-green { background: rgba(16, 124, 65, 0.18); color: #107C41; border: 1px solid rgba(16, 124, 65, 0.4); }
-.badge-amber { background: rgba(216, 59, 1, 0.18); color: #D83B01; border: 1px solid rgba(216, 59, 1, 0.4); }
-.badge-purple { background: rgba(135, 100, 184, 0.18); color: #8764B8; border: 1px solid rgba(135, 100, 184, 0.4); }
-.badge-cyan { background: rgba(0, 183, 195, 0.18); color: #00B7C3; border: 1px solid rgba(0, 183, 195, 0.4); }
-
-/* Windows 10 Form Controls */
-select, .macos-select, input, .macos-input {
-  font-family: inherit;
-  font-size: 12.5px;
-  border-radius: var(--radius-sm);
-  outline: none;
-  transition: border-color 0.12s ease;
-}
-
-[data-theme="dark"], [data-theme="dark"] select, [data-theme="dark"] .macos-select {
-  color-scheme: dark;
-}
-
-[data-theme="dark"] .macos-select,
-[data-theme="dark"] select {
-  background-color: #252830;
-  color: #FFFFFF;
-  border: 1px solid #3A3D46;
-  border-bottom: 2px solid #5A5D66;
-}
-
-[data-theme="dark"] select option,
-[data-theme="dark"] .macos-select option {
-  background-color: #1F2228 !important;
-  color: #FFFFFF !important;
-  padding: 8px 12px;
-}
-
-[data-theme="dark"] optgroup {
-  background-color: #18191E;
-  color: #00B7C3;
-  font-weight: 700;
-  font-style: normal;
-}
-
-[data-theme="light"], [data-theme="light"] select, [data-theme="light"] .macos-select {
-  color-scheme: light;
-}
-
-[data-theme="light"] .macos-select,
-[data-theme="light"] select {
-  background-color: #FFFFFF;
-  color: #1F1F1F;
-  border: 1px solid #CCCCCC;
-  border-bottom: 2px solid #888888;
-}
-
-[data-theme="light"] select option,
-[data-theme="light"] .macos-select option {
-  background-color: #FFFFFF !important;
-  color: #1F1F1F !important;
-  padding: 8px 12px;
-}
-
-[data-theme="light"] optgroup {
-  background-color: #F0F0F2;
-  color: #0078D4;
-  font-weight: 700;
-  font-style: normal;
-}
-
-.macos-select {
-  padding: 6px 12px;
-  cursor: pointer;
-}
-
-.macos-input {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
-  padding: 6px 12px;
-}
-
-.macos-select:focus, .macos-input:focus {
-  border-color: var(--border-focus);
-  border-bottom-color: var(--accent-blue);
-  box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
-}
-
-/* Windows 10 Data Table */
-.macos-table {
+.matte-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
 }
 
-.macos-table th {
-  background: var(--bg-surface);
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.matte-table-row {
+  height: 38px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.matte-table-row:hover {
+  background: var(--bg-surface-hover);
+}
+
+.matte-table-row.active {
+  background: var(--bg-surface-active);
+}
+
+.matte-table-index {
+  width: 32px;
+  font-size: 13px;
+  color: var(--text-muted);
   text-align: left;
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--border-subtle);
+  padding-left: 8px;
+  font-variant-numeric: tabular-nums;
 }
 
-.macos-table td {
-  padding: 9px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+.matte-table-primary {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 0 12px;
+}
+
+.matte-table-secondary {
+  font-size: 13px;
+  font-weight: 400;
   color: var(--text-secondary);
+  padding: 0 12px;
 }
 
-.macos-table tr:hover td {
+.matte-table-value {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: right;
+  padding-right: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------- */
+/* CUSTOM UTILITY CONTROLS (Section 6.2)                         */
+/* ------------------------------------------------------------- */
+
+/* Adjustment Slider: 2px track, 3px x 14px vertical thumb */
+.matte-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  outline: none;
+  border: none;
+  cursor: pointer;
+  margin: 10px 0;
+}
+
+.matte-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 3px;
+  height: 14px;
+  background: #FFFFFF;
+  cursor: pointer;
+  border: none;
+  transition: background 0.1s ease;
+}
+
+.matte-slider:active::-webkit-slider-thumb {
+  background: var(--accent-cyan);
+}
+
+.matte-slider::-moz-range-thumb {
+  width: 3px;
+  height: 14px;
+  background: #FFFFFF;
+  cursor: pointer;
+  border: none;
+  transition: background 0.1s ease;
+}
+
+.matte-slider:active::-moz-range-thumb {
+  background: var(--accent-cyan);
+}
+
+/* Parameter Group Header */
+.matte-group-header {
+  height: 28px;
+  background: #222326;
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Form Select Dropdown */
+.matte-select {
+  background: #222326;
+  color: #FFFFFF;
+  border: 1px solid var(--border-subtle);
+  padding: 5px 24px 5px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.matte-select:focus {
+  border-color: var(--accent-cyan);
+}
+
+/* Form Input */
+.matte-input {
+  background: #222326;
+  color: #FFFFFF;
+  border: 1px solid var(--border-subtle);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+
+.matte-input:focus {
+  border-color: var(--accent-cyan);
+}
+
+/* Chromeless Window Controls (Floating on canvas, Section 1.1 & Section 4) */
+.matte-window-controls {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  margin-left: 12px;
+  border-left: 1px solid var(--border-subtle);
+}
+
+.matte-win-btn {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+.matte-win-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+
+.matte-win-btn-close:hover {
+  background: var(--status-danger) !important;
+  color: #FFFFFF !important;
+}
+
+/* Flat Segmented Group (Zero Pill Geometry) */
+.matte-segment-bar {
+  display: inline-flex;
+  background: #222326;
+  border: 1px solid var(--border-subtle);
+  padding: 2px;
+  gap: 2px;
+}
+
+.matte-segment-item {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+.matte-segment-item:hover {
+  color: var(--text-primary);
+}
+
+.matte-segment-item.active {
+  background: var(--bg-canvas-primary);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Flat Badges (0px Rectilinear, 1px Border) */
+.matte-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border-subtle);
+  background: #222326;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.matte-badge-cyan {
+  border-color: rgba(0, 195, 249, 0.4);
+  background: rgba(0, 195, 249, 0.08);
+  color: var(--accent-cyan);
+}
+
+.matte-badge-green {
+  border-color: rgba(16, 124, 65, 0.4);
+  background: rgba(16, 124, 65, 0.1);
+  color: #30D158;
+}
+
+.matte-badge-amber {
+  border-color: rgba(245, 166, 35, 0.4);
+  background: rgba(245, 166, 35, 0.1);
+  color: var(--status-warning);
+}
+
+.matte-badge-danger {
+  border-color: rgba(232, 17, 35, 0.4);
+  background: rgba(232, 17, 35, 0.1);
+  color: var(--status-danger);
+}
+
+/* Flat Rectilinear Buttons */
+.matte-btn-primary {
+  background: var(--bg-surface-active);
+  border: 1px solid var(--accent-cyan);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.1s ease;
+}
+
+.matte-btn-primary:hover {
+  background: rgba(0, 195, 249, 0.15);
+}
+
+.matte-btn-secondary {
+  background: #222326;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+.matte-btn-secondary:hover {
   background: var(--bg-surface-hover);
   color: var(--text-primary);
 }
 
-/* Windows 10 Thin Scrollbar */
+/* Glass-Card Fallback Alias to Matte-Card */
+.glass-card {
+  background: #1C1D20 !important;
+  border: 1px solid var(--border-card) !important;
+  border-radius: 0px !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -561,10 +756,10 @@ select, .macos-select, input, .macos-input {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-xs);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.22);
 }
+

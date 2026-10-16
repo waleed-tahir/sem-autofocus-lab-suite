@@ -5,8 +5,10 @@ import {
   BarChart3, 
   Layers, 
   Eye, 
-  CheckCircle2, 
-  AlertCircle 
+  Check,
+  TrendingUp,
+  Sliders,
+  Filter
 } from 'lucide-react';
 import {
   Chart as ChartJS,
@@ -35,16 +37,16 @@ ChartJS.register(
 );
 
 const FMO_COLORS = {
-  m1_scharr: '#0A84FF',
-  m2_brenner: '#00E5FF',
+  m1_scharr: '#00C3F9',
+  m2_brenner: '#40D4FF',
   m3_sml: '#30D158',
   m4_steerable: '#FF9F0A',
-  m5_morph: '#FF375F',
+  m5_morph: '#FF453A',
   m6_wavelet: '#BF5AF2',
   m7_dct: '#FFD60A',
   m8_fft: '#64D2FF',
-  m9_normvar: '#AC8E68',
-  m10_tensor: '#FF453A'
+  m9_normvar: '#9A9B9E',
+  m10_tensor: '#E81123'
 };
 
 export default function FmoCurvesView({ 
@@ -67,9 +69,8 @@ export default function FmoCurvesView({
     m9_normvar: true,
     m10_tensor: true
   });
-  const [fmoGroup, setFmoGroup] = useState('all'); // 'all', 'spatial', 'transforms'
+  const [fmoGroup, setFmoGroup] = useState('all');
 
-  // Fetch Curves & Astigmatism
   useEffect(() => {
     fetch(`/api/curves/${currentDataset}`)
       .then(res => res.json())
@@ -105,7 +106,6 @@ export default function FmoCurvesView({
     }
   };
 
-  // Build Multi-Line Chart Data
   const numFrames = curveData ? curveData.num_frames : 200;
   const labels = Array.from({ length: numFrames }, (_, i) => i);
 
@@ -120,9 +120,9 @@ export default function FmoCurvesView({
       datasets.push({
         label: metadata.fmos?.[key]?.name || key,
         data: dataPoints,
-        borderColor: FMO_COLORS[key] || '#0A84FF',
+        borderColor: FMO_COLORS[key] || '#00C3F9',
         backgroundColor: 'transparent',
-        borderWidth: key === 'm1_scharr' || key === 'm10_tensor' ? 2.5 : 1.5,
+        borderWidth: key === 'm1_scharr' || key === 'm10_tensor' ? 2 : 1.25,
         pointRadius: 0,
         tension: 0.15
       });
@@ -134,34 +134,34 @@ export default function FmoCurvesView({
   const multiChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    animation: { duration: 300 },
+    animation: { duration: 150 },
     plugins: {
       legend: {
         display: false
       },
       tooltip: {
-        backgroundColor: theme === 'dark' ? 'rgba(20, 22, 28, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-        titleColor: theme === 'dark' ? '#fff' : '#000',
-        bodyColor: theme === 'dark' ? '#9898A0' : '#444',
+        backgroundColor: '#181819',
+        titleColor: '#FFFFFF',
+        bodyColor: '#9A9B9E',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)'
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        cornerRadius: 0
       }
     },
     scales: {
       x: {
-        grid: { color: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' },
-        ticks: { color: theme === 'dark' ? '#63636E' : '#A1A1A6', font: { size: 10 } }
+        grid: { color: 'rgba(255, 255, 255, 0.04)' },
+        ticks: { color: '#6E7074', font: { size: 10 } }
       },
       y: {
-        grid: { color: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' },
-        ticks: { color: theme === 'dark' ? '#63636E' : '#A1A1A6', font: { size: 10 } },
+        grid: { color: 'rgba(255, 255, 255, 0.04)' },
+        ticks: { color: '#6E7074', font: { size: 10 } },
         min: isNormalized ? 0 : undefined,
         max: isNormalized ? 1.05 : undefined
       }
     }
   };
 
-  // Bar Chart Data for PSR
   const fmoKeys = Object.keys(FMO_COLORS);
   const psrData = {
     labels: fmoKeys.map(k => metadata.fmos?.[k]?.name?.split(' ')[0] || k),
@@ -169,7 +169,8 @@ export default function FmoCurvesView({
       label: 'Peak Sharpness Ratio (PSR)',
       data: fmoKeys.map(k => curveData?.psr?.[k] || 0),
       backgroundColor: fmoKeys.map(k => FMO_COLORS[k]),
-      borderRadius: 6
+      borderRadius: 0,
+      borderSkipped: false
     }]
   };
 
@@ -178,83 +179,92 @@ export default function FmoCurvesView({
     maintainAspectRatio: false,
     plugins: { legend: { display: false } },
     scales: {
-      x: { ticks: { color: theme === 'dark' ? '#63636E' : '#A1A1A6', font: { size: 10 } }, grid: { display: false } },
-      y: { ticks: { color: theme === 'dark' ? '#63636E' : '#A1A1A6', font: { size: 10 } }, grid: { color: 'rgba(255, 255, 255, 0.05)' } }
+      x: { ticks: { color: '#6E7074', font: { size: 10 } }, grid: { display: false } },
+      y: { ticks: { color: '#6E7074', font: { size: 10 } }, grid: { color: 'rgba(255, 255, 255, 0.04)' } }
     }
   };
 
-  // Astigmatism Chart
   const astigChartData = {
     labels,
     datasets: [
       {
         label: 'A_xy(z) Axis Asymmetry',
         data: astigData?.A_xy_series || [],
-        borderColor: '#0A84FF',
-        borderWidth: 1.5,
+        borderColor: '#00C3F9',
+        borderWidth: 1.25,
         pointRadius: 0
       },
       {
         label: 'A_45(z) Diagonal Asymmetry',
         data: astigData?.A_45_series || [],
         borderColor: '#FF9F0A',
-        borderWidth: 1.5,
+        borderWidth: 1.25,
         pointRadius: 0
       }
     ]
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Header Card */}
-      <div className="glass-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 22px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(191, 90, 242, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Activity size={20} color="#BF5AF2" />
-          </div>
-          <div>
-            <h2 style={{ fontSize: '16px', fontWeight: '600' }}>10-FMO Focus Curves & Astigmatism Diagnostics</h2>
-            <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-              Evaluate Full-Width at Half-Maximum (FWHM), noise immunity, and directional stigmator asymmetry
-            </p>
-          </div>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '32px' }}>
+      {/* Zone 2: Hero Header Zone */}
+      <section className="matte-hero-zone">
+        <div>
+          <h1 className="matte-hero-title">
+            10-FMO Focus Curves
+          </h1>
+          <p className="matte-hero-bio">
+            Comparative focus response curves across 200 depth slices on {currentDataset}. Evaluates Full-Width at Half-Maximum (FWHM), peak unimodality, and stigmator asymmetry.
+          </p>
         </div>
 
-        {/* View mode toggle */}
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <div className="segmented-pill-bar">
+        {/* Action Cluster */}
+        <div className="matte-action-cluster">
+          <div className="matte-action-cluster-tag">
+            SPECTRAL & SPATIAL KERNELS
+          </div>
+          <div className="matte-action-icons">
+            <div className="matte-segment-bar">
+              <button 
+                className={`matte-segment-item ${fmoGroup === 'all' ? 'active' : ''}`}
+                onClick={() => selectGroup('all')}
+              >
+                All 10
+              </button>
+              <button 
+                className={`matte-segment-item ${fmoGroup === 'spatial' ? 'active' : ''}`}
+                onClick={() => selectGroup('spatial')}
+              >
+                M1–M5 Spatial
+              </button>
+              <button 
+                className={`matte-segment-item ${fmoGroup === 'transforms' ? 'active' : ''}`}
+                onClick={() => selectGroup('transforms')}
+              >
+                M6–M10 Spectral
+              </button>
+            </div>
+
             <button 
-              className={`segmented-pill-item ${fmoGroup === 'all' ? 'active' : ''}`}
-              onClick={() => selectGroup('all')}
+              className="matte-btn-secondary"
+              onClick={() => setIsNormalized(!isNormalized)}
+              style={{ height: '28px', padding: '0 10px', fontSize: '11px' }}
             >
-              All 10 FMOs
-            </button>
-            <button 
-              className={`segmented-pill-item ${fmoGroup === 'spatial' ? 'active' : ''}`}
-              onClick={() => selectGroup('spatial')}
-            >
-              M1-M5 Spatial
-            </button>
-            <button 
-              className={`segmented-pill-item ${fmoGroup === 'transforms' ? 'active' : ''}`}
-              onClick={() => selectGroup('transforms')}
-            >
-              M6-M10 Tensor/Spectral
+              {isNormalized ? 'Normalized [0, 1]' : 'Raw Scale'}
             </button>
           </div>
-
-          <button 
-            className={`btn-macos-secondary ${isNormalized ? 'active' : ''}`}
-            onClick={() => setIsNormalized(!isNormalized)}
-          >
-            {isNormalized ? 'Normalized [0, 1]' : 'Raw Scale'}
-          </button>
         </div>
-      </div>
+      </section>
 
-      {/* Main Focus Curves Canvas */}
-      <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', paddingBottom: '10px', borderBottom: '1px solid var(--border-subtle)' }}>
+      {/* Main Focus Curves Canvas (0px Rectilinear Matte Card) */}
+      <div className="matte-card">
+        {/* FMO Toggle Swatches (Strict 0px geometry) */}
+        <div style={{ 
+          display: 'flex', 
+          flexWrap: 'wrap', 
+          gap: '8px', 
+          paddingBottom: '12px', 
+          borderBottom: '1px solid var(--border-subtle)' 
+        }}>
           {Object.keys(FMO_COLORS).map(key => {
             const active = activeFmos[key];
             const meta = metadata.fmos?.[key];
@@ -263,54 +273,35 @@ export default function FmoCurvesView({
               <button
                 key={key}
                 onClick={() => toggleFmo(key)}
+                className="tabular-nums"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '7px',
-                  padding: '6px 14px',
-                  borderRadius: '20px',
+                  gap: '8px',
+                  padding: '5px 12px',
                   fontSize: '12px',
-                  fontWeight: active ? '600' : '500',
-                  border: `1.5px solid ${active ? color : 'var(--border-subtle)'}`,
-                  background: active 
-                    ? (theme === 'light' ? `${color}18` : `${color}25`) 
-                    : (theme === 'light' ? 'rgba(0, 0, 0, 0.03)' : 'rgba(255, 255, 255, 0.03)'),
-                  color: active 
-                    ? (theme === 'light' ? '#111827' : '#F9FAFB') 
-                    : 'var(--text-secondary)',
-                  boxShadow: active ? `0 2px 8px ${color}33` : 'none',
+                  fontWeight: active ? '600' : '400',
+                  border: `1px solid ${active ? color : 'var(--border-subtle)'}`,
+                  background: active ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+                  color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease'
+                  transition: 'background 0.1s ease'
                 }}
               >
                 <span style={{ 
-                  width: '9px', 
-                  height: '9px', 
-                  borderRadius: '50%', 
+                  width: '8px', 
+                  height: '8px', 
                   background: color,
-                  boxShadow: active ? `0 0 8px ${color}` : 'none'
+                  display: 'inline-block'
                 }} />
-                <span style={{
-                  color: active 
-                    ? (theme === 'light' ? '#111827' : '#F9FAFB') 
-                    : 'var(--text-secondary)'
-                }}>
-                  {meta?.name || key}
-                </span>
+                <span>{meta?.name || key}</span>
                 {curveData?.ground_truth_peaks?.[key] !== undefined && (
                   <span style={{ 
-                    fontSize: '10.5px',
-                    fontWeight: '700',
-                    padding: '1px 6px',
-                    borderRadius: '8px',
-                    background: active 
-                      ? (theme === 'light' ? `${color}25` : `${color}40`) 
-                      : (theme === 'light' ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.08)'),
-                    color: active 
-                      ? (theme === 'light' ? '#111827' : '#FFFFFF') 
-                      : 'var(--text-tertiary)'
+                    fontSize: '11px',
+                    color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+                    marginLeft: '4px'
                   }}>
-                    {curveData.ground_truth_peaks[key]}
+                    z*={curveData.ground_truth_peaks[key]}
                   </span>
                 )}
               </button>
@@ -318,101 +309,117 @@ export default function FmoCurvesView({
           })}
         </div>
 
-        <div style={{ height: '360px', position: 'relative' }}>
+        {/* Chart Viewport */}
+        <div style={{ height: '380px', position: 'relative' }}>
           <Line data={multiChartData} options={multiChartOptions} />
         </div>
       </div>
 
-      {/* 2-Column: Peak Sharpness vs Astigmatism Diagnostic */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+      {/* Lower Diagnostics Split: PSR Prominence & Directional Astigmatism */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '48px' }}>
         {/* Peak Sharpness Ratio (PSR) Bar Chart */}
-        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <BarChart3 size={15} color="#30D158" />
+        <div className="matte-card">
+          <div className="matte-section-h2" style={{ marginBottom: 0 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <BarChart3 size={15} strokeWidth={1.25} color="var(--accent-cyan)" />
               Peak Sharpness Ratio (PSR) Prominence
             </span>
-            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+            <span className="mono-metric" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
               (Φ_max - μ_tail) / σ_tail
             </span>
           </div>
+
           <div style={{ height: '220px', position: 'relative' }}>
             <Bar data={psrData} options={psrOptions} />
           </div>
-          <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-            Higher PSR indicates a razor-sharp peak with zero risk of false bracketing on noisy micrographs.
+
+          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '18px' }}>
+            Higher PSR indicates a steep, noise-resistant focal peak. Wavelet (M6) and Scharr (M1) maintain high PSR even under heavy Poisson shot noise.
           </p>
         </div>
 
-        {/* Bonus Astigmatism Detection Compass Card */}
-        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Compass size={15} color="#FF9F0A" />
-              Free Astigmatism Diagnostic (Section 3 Bonus)
+        {/* Free Directional Astigmatism Diagnostic */}
+        <div className="matte-card">
+          <div className="matte-section-h2" style={{ marginBottom: 0 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Compass size={15} strokeWidth={1.25} color="var(--status-warning)" />
+              Directional Astigmatism Diagnostic
             </span>
             {astigData?.has_astigmatism ? (
-              <span className="badge-pill badge-amber">Astigmatism Detected</span>
+              <span className="matte-badge matte-badge-amber">Astigmatism Detected</span>
             ) : (
-              <span className="badge-pill badge-green">Astigmatism Free</span>
+              <span className="matte-badge matte-badge-green">Astigmatism Free</span>
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '16px', alignItems: 'center' }}>
-            {/* Polar Compass Widget */}
+          <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '20px', alignItems: 'center' }}>
+            {/* Rectilinear Stigmator Vector Box (Strict 0px Geometry) */}
             <div style={{ 
               width: '130px', 
               height: '130px', 
-              borderRadius: '50%', 
-              border: '2px dashed var(--border-subtle)', 
+              border: '1px solid var(--border-subtle)', 
+              background: '#121214',
               position: 'relative',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              background: 'radial-gradient(circle, rgba(255, 159, 10, 0.1) 0%, transparent 70%)'
+              justifyContent: 'center'
             }}>
-              <span style={{ position: 'absolute', top: '4px', fontSize: '9px', color: 'var(--text-tertiary)' }}>0° Y</span>
-              <span style={{ position: 'absolute', right: '4px', fontSize: '9px', color: 'var(--text-tertiary)' }}>90° X</span>
+              {/* Coordinate Grid Crosshairs */}
+              <div style={{ position: 'absolute', width: '100%', height: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
+              <div style={{ position: 'absolute', height: '100%', width: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
+              
+              <span style={{ position: 'absolute', top: '4px', fontSize: '9px', color: 'var(--text-muted)' }}>Y (0°)</span>
+              <span style={{ position: 'absolute', right: '4px', fontSize: '9px', color: 'var(--text-muted)' }}>X (90°)</span>
               
               {/* Pointer Needle */}
               <div style={{
                 position: 'absolute',
-                width: '4px',
-                height: '45px',
-                background: 'linear-gradient(to top, transparent, #FF9F0A)',
-                borderRadius: '4px',
+                width: '2px',
+                height: '48px',
+                background: 'var(--status-warning)',
                 transformOrigin: 'bottom center',
-                transform: `rotate(${astigData?.stigmator_angle_deg || 0}deg) translateY(-22px)`,
-                transition: 'transform 0.5s ease'
+                transform: `rotate(${astigData?.stigmator_angle_deg || 0}deg) translateY(-24px)`,
+                transition: 'transform 0.4s ease'
               }} />
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#FF9F0A' }} />
+              <div style={{ width: '4px', height: '4px', background: 'var(--text-primary)', zIndex: 2 }} />
             </div>
 
-            {/* Numerical Diagnostics */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '4px' }}>
+            {/* Numerical Diagnostics in Tabular Format */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px' }} className="tabular-nums">
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '4px', borderBottom: '1px solid var(--border-subtle)' }}>
                 <span style={{ color: 'var(--text-secondary)' }}>Horizontal Peak (z_x*):</span>
-                <b>Frame {astigData?.zx_peak || '96'}</b>
+                <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>Frame {astigData?.zx_peak ?? 96}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '4px', borderBottom: '1px solid var(--border-subtle)' }}>
                 <span style={{ color: 'var(--text-secondary)' }}>Vertical Peak (z_y*):</span>
-                <b>Frame {astigData?.zy_peak || '96'}</b>
+                <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>Frame {astigData?.zy_peak ?? 96}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '4px' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Stigmator Error (|z_x* - z_y*|):</span>
-                <b style={{ color: (astigData?.stigmator_error || 0) > 0 ? '#FF9F0A' : '#30D158' }}>
-                  {astigData?.stigmator_error || 0} frames
-                </b>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '4px', borderBottom: '1px solid var(--border-subtle)' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Stigmator Error (|Δz*|):</span>
+                <span style={{ fontWeight: '600', color: (astigData?.stigmator_error || 0) > 0 ? 'var(--status-warning)' : 'var(--status-success)' }}>
+                  {astigData?.stigmator_error ?? 0} frames
+                </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>True Gaussian Focus (z_true*):</span>
-                <b style={{ color: '#0A84FF' }}>Frame {astigData?.z_true || '96.0'}</b>
+                <span style={{ color: 'var(--text-secondary)' }}>True Gaussian Focus (z*):</span>
+                <span style={{ fontWeight: '600', color: 'var(--accent-cyan)' }}>Frame {astigData?.z_true ?? '96.0'}</span>
               </div>
             </div>
           </div>
 
           <div style={{ height: '90px', position: 'relative' }}>
-            <Line data={astigChartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { ticks: { font: { size: 9 } } } } }} />
+            <Line 
+              data={astigChartData} 
+              options={{ 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } }, 
+                scales: { 
+                  x: { display: false }, 
+                  y: { ticks: { font: { size: 9 }, color: '#6E7074' }, grid: { color: 'rgba(255, 255, 255, 0.04)' } } 
+                } 
+              }} 
+            />
           </div>
         </div>
       </div>

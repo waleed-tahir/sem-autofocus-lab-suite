@@ -46,7 +46,7 @@ export default function DatasetPathModal({
       setTimeout(() => {
         onClose();
         setSuccessMsg(null);
-      }, 1000);
+      }, 900);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -60,21 +60,18 @@ export default function DatasetPathModal({
     <div style={{
       position: 'fixed',
       inset: 0,
-      background: 'rgba(0, 0, 0, 0.65)',
-      backdropFilter: 'blur(10px)',
+      background: 'rgba(0, 0, 0, 0.75)',
+      backdropFilter: 'blur(16px)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 1000,
-      animation: 'fadeIn 0.15s ease'
+      zIndex: 1000
     }}>
-      <div className="win-card" style={{
-        width: '540px',
+      <div style={{
+        width: '520px',
         maxWidth: '92vw',
-        background: 'var(--bg-card)',
+        background: '#1C1D20',
         border: '1px solid var(--border-subtle)',
-        borderRadius: 'var(--radius-md)',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
         display: 'flex',
         flexDirection: 'column',
         gap: '16px',
@@ -82,21 +79,10 @@ export default function DatasetPathModal({
       }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '6px',
-              background: 'rgba(0, 183, 195, 0.15)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--accent-cyan)'
-            }}>
-              <Folder size={18} />
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Folder size={18} strokeWidth={1.25} color="var(--accent-cyan)" />
             <div>
-              <h3 style={{ fontSize: '15px', fontWeight: '600' }}>Select Datasets Directory</h3>
+              <h3 style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)' }}>Select Datasets Directory</h3>
               <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                 Point to a directory containing SEM / TEM focal stack folders
               </p>
@@ -104,11 +90,11 @@ export default function DatasetPathModal({
           </div>
 
           <button 
-            className="btn-fluent-secondary"
+            className="matte-wireframe-btn"
             onClick={onClose}
-            style={{ padding: '6px 8px', borderRadius: '4px' }}
+            style={{ width: '28px', height: '28px' }}
           >
-            <X size={14} />
+            <X size={16} strokeWidth={1.25} />
           </button>
         </div>
 
@@ -120,41 +106,63 @@ export default function DatasetPathModal({
           <div style={{ display: 'flex', gap: '8px' }}>
             <input 
               type="text" 
-              className="macos-input"
-              style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: '12px' }}
+              style={{
+                flex: 1,
+                background: '#151618',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '12px',
+                padding: '7px 10px',
+                outline: 'none'
+              }}
               placeholder="e.g. C:\Microscopy\Datasets"
               value={pathInput}
               onChange={(e) => setPathInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleApply()}
             />
             <button 
-              className="btn-fluent-primary"
+              className="matte-wireframe-btn"
               onClick={() => handleApply()}
               disabled={loading}
-              style={{ minWidth: '90px' }}
+              style={{ 
+                minWidth: '80px', 
+                background: 'var(--bg-surface-active)',
+                border: '1px solid var(--border-subtle)',
+                fontSize: '12px',
+                fontWeight: '600',
+                gap: '6px'
+              }}
             >
-              {loading ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
-              {loading ? 'Scanning...' : 'Apply'}
+              {loading ? <RefreshCw size={13} strokeWidth={1.25} className="animate-spin" /> : <Check size={13} strokeWidth={1.25} />}
+              <span>{loading ? 'Scanning' : 'Apply'}</span>
             </button>
           </div>
         </div>
 
         {/* Quick Presets */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: '600' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.04em' }}>
             Quick Presets:
           </span>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div>
             <button 
-              className="btn-fluent-secondary"
-              style={{ fontSize: '11.5px', padding: '5px 10px' }}
+              className="matte-wireframe-btn"
+              style={{ 
+                fontSize: '11.5px', 
+                padding: '6px 12px', 
+                background: 'var(--bg-surface-hover)', 
+                border: '1px solid var(--border-subtle)',
+                gap: '8px',
+                textAlign: 'left'
+              }}
               onClick={() => {
                 setPathInput(defaultLabPath);
                 handleApply(defaultLabPath);
               }}
             >
-              <HardDrive size={13} color="var(--accent-cyan)" />
-              Default Lab Suite ({defaultLabPath})
+              <HardDrive size={13} strokeWidth={1.25} color="var(--accent-cyan)" />
+              <span className="mono-metric">Default Lab Suite ({defaultLabPath})</span>
             </button>
           </div>
         </div>
@@ -162,9 +170,8 @@ export default function DatasetPathModal({
         {/* Status Messages */}
         {error && (
           <div style={{
-            background: 'rgba(232, 17, 35, 0.15)',
+            background: 'rgba(232, 17, 35, 0.12)',
             border: '1px solid rgba(232, 17, 35, 0.3)',
-            borderRadius: '4px',
             padding: '8px 12px',
             fontSize: '12px',
             color: '#FF6B68',
@@ -172,16 +179,15 @@ export default function DatasetPathModal({
             alignItems: 'center',
             gap: '8px'
           }}>
-            <AlertCircle size={15} />
+            <AlertCircle size={15} strokeWidth={1.25} />
             <span>{error}</span>
           </div>
         )}
 
         {successMsg && (
           <div style={{
-            background: 'rgba(16, 124, 65, 0.15)',
+            background: 'rgba(16, 124, 65, 0.12)',
             border: '1px solid rgba(16, 124, 65, 0.3)',
-            borderRadius: '4px',
             padding: '8px 12px',
             fontSize: '12px',
             color: '#34C759',
@@ -189,7 +195,7 @@ export default function DatasetPathModal({
             alignItems: 'center',
             gap: '8px'
           }}>
-            <Check size={15} />
+            <Check size={15} strokeWidth={1.25} />
             <span>{successMsg}</span>
           </div>
         )}

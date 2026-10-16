@@ -4,16 +4,13 @@ import {
   RotateCcw, 
   ChevronLeft, 
   ChevronRight, 
-  Crosshair, 
-  Zap, 
-  Clock, 
-  HardDrive, 
-  CheckCircle2, 
-  AlertTriangle,
-  Sliders,
-  Eye,
-  Layers,
-  TrendingUp
+  FolderOpen,
+  Eye, 
+  TrendingUp,
+  Clock,
+  Sparkles,
+  Compass,
+  Check
 } from 'lucide-react';
 import {
   Chart as ChartJS,
@@ -45,7 +42,7 @@ export default function LiveStudio({
   theme,
   onOpenPathModal
 }) {
-  const [searchMethod, setSearchMethod] = useState('s1_fibonacci');
+  const [searchMethod, setSearchMethod] = useState('s2_hybrid');
   const [fmo, setFmo] = useState('m1_scharr');
   const [useAnscombe, setUseAnscombe] = useState(false);
   const [topK, setTopK] = useState(3);
@@ -56,6 +53,7 @@ export default function LiveStudio({
   const [isPlaying, setIsPlaying] = useState(false);
   const [groundTruthCurve, setGroundTruthCurve] = useState([]);
   const [gtPeak, setGtPeak] = useState(96);
+  const [showMetadata, setShowMetadata] = useState(false);
 
   // Load ground truth curve for the dataset & FMO
   useEffect(() => {
@@ -112,7 +110,7 @@ export default function LiveStudio({
           }
           return prev + 1;
         });
-      }, 350);
+      }, 300);
     }
     return () => clearInterval(timer);
   }, [isPlaying, searchResult]);
@@ -143,30 +141,30 @@ export default function LiveStudio({
       {
         label: 'Focus Profile Curve Φ(z)',
         data: normalizedRefCurve,
-        borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.25)',
-        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.2)',
+        borderWidth: 1.25,
         pointRadius: 0,
         fill: true,
-        backgroundColor: theme === 'dark' ? 'rgba(10, 132, 255, 0.05)' : 'rgba(0, 122, 255, 0.04)',
-        tension: 0.2
+        backgroundColor: 'rgba(255, 255, 255, 0.02)',
+        tension: 0.15
       },
       {
         label: 'Search Probes',
         data: trajectoryPoints,
-        borderColor: '#00E5FF',
-        backgroundColor: '#00E5FF',
-        borderWidth: 2,
+        borderColor: '#00C3F9',
+        backgroundColor: '#00C3F9',
+        borderWidth: 1.5,
         pointRadius: (ctx) => {
           const idx = ctx.dataIndex;
-          if (currentStep && currentStep.idx === idx) return 7;
-          return ctx.raw !== null ? 4 : 0;
+          if (currentStep && currentStep.idx === idx) return 6;
+          return ctx.raw !== null ? 3.5 : 0;
         },
-        pointHoverRadius: 8,
+        pointHoverRadius: 6,
         pointBackgroundColor: (ctx) => {
           const idx = ctx.dataIndex;
-          if (currentStep && currentStep.idx === idx) return '#FF9F0A';
-          if (searchResult && idx === searchResult.discrete_peak) return '#30D158';
-          return '#00E5FF';
+          if (currentStep && currentStep.idx === idx) return '#00C3F9';
+          if (searchResult && idx === searchResult.discrete_peak) return '#107C41';
+          return '#FFFFFF';
         },
         showLine: true
       }
@@ -176,34 +174,35 @@ export default function LiveStudio({
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    animation: { duration: 250 },
+    animation: { duration: 150 },
     plugins: {
       legend: {
         display: true,
         labels: {
-          color: theme === 'dark' ? '#9898A0' : '#6E6E73',
-          font: { size: 11, family: 'Inter' }
+          color: '#9A9B9E',
+          font: { size: 11, family: 'Segoe UI' },
+          boxWidth: 12
         }
       },
       tooltip: {
-        backgroundColor: theme === 'dark' ? 'rgba(20, 22, 28, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-        titleColor: theme === 'dark' ? '#fff' : '#000',
-        bodyColor: theme === 'dark' ? '#9898A0' : '#444',
+        backgroundColor: 'rgba(24, 24, 25, 0.95)',
+        titleColor: '#FFFFFF',
+        bodyColor: '#9A9B9E',
         borderColor: 'rgba(255, 255, 255, 0.1)',
         borderWidth: 1,
         callbacks: {
-          label: (ctx) => `Frame ${ctx.dataIndex}: ${(ctx.raw * 100).toFixed(1)}% max score`
+          label: (ctx) => `Frame ${ctx.dataIndex}: ${(ctx.raw * 100).toFixed(1)}% score`
         }
       }
     },
     scales: {
       x: {
-        grid: { color: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' },
-        ticks: { color: theme === 'dark' ? '#63636E' : '#A1A1A6', font: { size: 10 } }
+        grid: { color: 'rgba(255, 255, 255, 0.04)' },
+        ticks: { color: '#6E7074', font: { size: 10 } }
       },
       y: {
-        grid: { color: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' },
-        ticks: { color: theme === 'dark' ? '#63636E' : '#A1A1A6', font: { size: 10 } },
+        grid: { color: 'rgba(255, 255, 255, 0.04)' },
+        ticks: { color: '#6E7074', font: { size: 10 } },
         min: 0,
         max: 1.05
       }
@@ -211,216 +210,217 @@ export default function LiveStudio({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Windows 10 Groove Music Hero Header */}
-      <div className="groove-hero">
-        {/* Large Circular Focus Plane Artwork */}
-        <img 
-          src={`/api/frame/${currentDataset}/${gtPeak}?overlay_rois=false`}
-          onError={(e) => { e.target.src = '/app_icon.svg'; }}
-          alt="Focus Peak Slice" 
-          className="groove-hero-avatar"
-        />
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+      {/* ------------------------------------------------------------- */}
+      {/* ZONE 2: HERO HEADER ZONE (Section 4.2)                        */}
+      {/* ------------------------------------------------------------- */}
+      <section className="matte-hero-zone">
+        <div>
+          {/* H1 Hero Title (42px bold, -0.02em tracking) */}
+          <h1 className="matte-hero-title">
+            {currentDataset}
+          </h1>
 
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h1 className="groove-hero-title">
-              {currentDataset}
-            </h1>
-            <span style={{ 
-              fontSize: '11px', 
-              color: 'var(--accent-cyan)', 
-              fontWeight: '600', 
-              textTransform: 'uppercase', 
-              letterSpacing: '1px' 
-            }}>
-              SEM Scanning Electron Microscopy
-            </span>
-          </div>
-
-          <p className="groove-hero-desc">
-            Focal stack across 200 depth slices. Evaluates 10 Focus Measure Operators (Scharr, Brenner, Modified Laplacian, DCT AC, Wavelet, Structure Tensor) and 4 sub-linear search schemes with sub-frame Gaussian quadratic interpolation.
+          {/* Multi-line Description / Bio Copy */}
+          <p className="matte-hero-bio">
+            Scanning Electron Microscopy focal stack across 200 depth slices. Evaluates 10 Focus Measure Operators and 4 sub-linear search schemes with Gaussian log-quadratic sub-frame peak interpolation.
           </p>
 
-          {/* Groove Action Controls */}
-          <div className="groove-hero-actions">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
             <button 
-              className="groove-btn-play"
+              className="matte-link-cyan"
+              onClick={() => setShowMetadata(!showMetadata)}
+            >
+              {showMetadata ? 'HIDE METADATA' : 'MORE METADATA'}
+            </button>
+            {showMetadata && (
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }} className="mono-metric">
+                Target z*={gtPeak} • PSF Gaussian Fit • Top-K={topK} ROIs
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Header Action Cluster (Right Side) */}
+        <div className="matte-action-cluster">
+          <div className="matte-action-cluster-tag">
+            SEM / SCANNING ELECTRON MICROSCOPY
+          </div>
+          
+          <div className="matte-action-icons">
+            {/* Wireframe Run Autofocus (Play) */}
+            <button 
+              className="matte-wireframe-btn"
               onClick={runAutofocus}
               disabled={isRunning}
+              title={isRunning ? "Optimizing..." : "Execute Autofocus Sweep"}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}
             >
-              {isRunning ? <Clock size={16} className="animate-spin" /> : <Play size={16} fill="#000" />}
-              <span>{isRunning ? 'Optimizing...' : 'Run Autofocus'}</span>
+              {isRunning ? <Clock size={16} strokeWidth={1.25} className="animate-spin" /> : <Play size={16} strokeWidth={1.25} />}
+              <span>{isRunning ? 'Optimizing' : 'Run'}</span>
             </button>
 
+            {/* Wireframe Reset */}
             <button 
-              className="groove-btn-action"
+              className="matte-wireframe-btn"
               onClick={() => {
                 setSearchResult(null);
                 setCurrentStepIdx(0);
               }}
-              title="Reset search state"
+              title="Reset Search State"
             >
-              <RotateCcw size={14} />
-              <span>Reset</span>
+              <RotateCcw size={16} strokeWidth={1.25} />
             </button>
 
+            {/* Wireframe Folder Open */}
             {onOpenPathModal && (
               <button 
-                className="groove-btn-action"
+                className="matte-wireframe-btn"
                 onClick={onOpenPathModal}
                 title="Select Datasets Directory"
               >
-                <HardDrive size={14} color="var(--accent-cyan)" />
-                <span>Dataset Folder</span>
+                <FolderOpen size={16} strokeWidth={1.25} />
               </button>
             )}
-
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-              <span>Target Peak: <b style={{ color: 'var(--text-primary)' }}>Frame {gtPeak}</b></span>
-              <span>Operator: <b style={{ color: 'var(--accent-cyan)' }}>{metadata.fmos?.[fmo]?.name || fmo}</b></span>
-            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Main 2-Column Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '20px' }}>
-        {/* Left Column: Configuration Controls */}
-        <div className="win-card" style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-          <h3 style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-tertiary)' }}>
-            Search Configuration
-          </h3>
-
-          {/* Search Strategy */}
+      {/* ------------------------------------------------------------- */}
+      {/* ZONE 3: LOWER SPLIT WORKSPACE (Section 4.3, 48px gutter)       */}
+      {/* ------------------------------------------------------------- */}
+      <div className="matte-split-workspace">
+        {/* Primary Content Column (Left, Fluid 65%-70%) */}
+        <div className="matte-primary-column">
+          {/* Module 1: In Library — Micrograph Inspection */}
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', marginBottom: '6px', color: 'var(--text-secondary)' }}>
-              Search Strategy
-            </label>
-            <select 
-              className="macos-select" 
-              style={{ width: '100%' }}
-              value={searchMethod}
-              onChange={(e) => setSearchMethod(e.target.value)}
-            >
-              <option value="s1_fibonacci">S1 — Fibonacci Lattice (O(log φ N), ~12 reads)</option>
-              <option value="s2_hybrid">S2 — Hybrid Coarse-to-Fine (O(√N), Robust)</option>
-              <option value="s3_pyramid">S3 — Pyramid Bracket (3-Tier Decimation)</option>
-              <option value="s4_speculative">S4 — Speculative Parallel (2 Disk I/O Batches)</option>
-              <option value="golden_section">GS — Golden Section Search</option>
-              <option value="baseline_global">Global Full Stack Scan (200 frames baseline)</option>
-            </select>
-            <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-              {metadata.search_algorithms?.[searchMethod]?.description || ''}
-            </p>
-          </div>
-
-          {/* Focus Measure Operator */}
-          <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', marginBottom: '6px', color: 'var(--text-secondary)' }}>
-              Focus Measure Operator (FMO)
-            </label>
-            <select 
-              className="macos-select" 
-              style={{ width: '100%' }}
-              value={fmo}
-              onChange={(e) => setFmo(e.target.value)}
-            >
-              <optgroup label="Spatial & Directional (M1 - M5)">
-                <option value="m1_scharr">M1: Scharr-Tenengrad (Rotationally Invariant)</option>
-                <option value="m2_brenner">M2: Multi-Scale Denoised Brenner</option>
-                <option value="m3_sml">M3: Modified Laplacian (SML Gaussian)</option>
-                <option value="m4_steerable">M4: Steerable 4-Orientation G1</option>
-                <option value="m5_morph">M5: Morphological Top-Hat Gradient</option>
-              </optgroup>
-              <optgroup label="Transform & Statistical (M6 - M10)">
-                <option value="m6_wavelet">M6: 2D Haar Wavelet Subband Ratio</option>
-                <option value="m7_dct">M7: DCT Mid-Band AC Ratio</option>
-                <option value="m8_fft">M8: Fourier Radial CTF Bandpass</option>
-                <option value="m9_normvar">M9: Mean-Normalized Gray Variance</option>
-                <option value="m10_tensor">M10: Structure Tensor Coherence</option>
-              </optgroup>
-            </select>
-            <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-              {metadata.fmos?.[fmo]?.optimal_regime || ''}
-            </p>
-          </div>
-
-          {/* Pre-Conditioning Toggles */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid var(--border-subtle)', paddingTop: '14px' }}>
-            {/* Anscombe Transform */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <span style={{ fontSize: '13px', fontWeight: '500', display: 'block' }}>Anscombe Stabilization</span>
-                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>2·√(I + 3/8) Poisson shot filter</span>
-              </div>
-              <input 
-                type="checkbox" 
-                checked={useAnscombe}
-                onChange={(e) => setUseAnscombe(e.target.checked)}
-                style={{ width: '18px', height: '18px', accentColor: 'var(--accent-blue)', cursor: 'pointer' }}
-              />
+            <div className="matte-section-h2">
+              <span>In Library — Micrograph Inspection</span>
+              <span className="mono-metric" style={{ fontSize: '12px', fontWeight: '400', color: viewedFrameIdx === gtPeak ? 'var(--status-success)' : 'var(--text-muted)' }}>
+                Frame z = {viewedFrameIdx} / {totalFrames - 1} {viewedFrameIdx === gtPeak ? '(True Peak)' : ''}
+              </span>
             </div>
 
-            {/* Top-K ROI Zones */}
+            {/* Strict 0px Rectilinear Micrograph Viewport */}
+            <div style={{ 
+              position: 'relative', 
+              width: '100%', 
+              height: '380px', 
+              background: '#0E0E10', 
+              border: '1px solid var(--border-subtle)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden'
+            }}>
+              <img 
+                src={`/api/frame/${currentDataset}/${viewedFrameIdx}?overlay_rois=true&top_k=${topK}&anscombe=${useAnscombe}`}
+                alt={`Micrograph Frame ${viewedFrameIdx}`}
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+
+              {/* Minimal Telemetry Overlay */}
+              <div style={{
+                position: 'absolute',
+                bottom: '10px',
+                left: '10px',
+                background: 'rgba(24, 24, 25, 0.88)',
+                padding: '4px 10px',
+                border: '1px solid var(--border-subtle)',
+                fontSize: '11px',
+                color: 'var(--text-secondary)',
+                display: 'flex',
+                gap: '14px'
+              }} className="tabular-nums">
+                <span><b>Slice:</b> {viewedFrameIdx}</span>
+                <span><b>ROIs:</b> Top-{topK} Locked</span>
+                <span><b>Anscombe:</b> {useAnscombe ? 'On' : 'Off'}</span>
+                <span><b>Stage:</b> {currentStep ? currentStep.stage : 'Idle'}</span>
+              </div>
+            </div>
+
+            {/* Trajectory Playback Scrubber (Custom 2px track slider) */}
+            {searchResult && searchResult.history && (
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '16px', 
+                padding: '8px 0', 
+                marginTop: '4px' 
+              }}>
+                <button 
+                  className="matte-wireframe-btn"
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  style={{ width: '28px', height: '28px' }}
+                >
+                  <Play size={14} strokeWidth={1.25} />
+                </button>
+
+                <button 
+                  className="matte-wireframe-btn"
+                  onClick={() => setCurrentStepIdx(Math.max(0, currentStepIdx - 1))}
+                  disabled={currentStepIdx === 0}
+                  style={{ width: '24px', height: '24px', opacity: currentStepIdx === 0 ? 0.3 : 1 }}
+                >
+                  <ChevronLeft size={14} strokeWidth={1.25} />
+                </button>
+
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {/* Adjustment Slider: 2px track, 3px x 14px thumb */}
+                  <input 
+                    type="range"
+                    min="0"
+                    max={searchResult.history.length - 1}
+                    value={currentStepIdx}
+                    onChange={(e) => setCurrentStepIdx(parseInt(e.target.value))}
+                    className="matte-slider"
+                  />
+                  <span className="mono-metric" style={{ fontSize: '11.5px', color: 'var(--text-muted)', minWidth: '75px', textAlign: 'right' }}>
+                    Step {currentStepIdx + 1} / {searchResult.history.length}
+                  </span>
+                </div>
+
+                <button 
+                  className="matte-wireframe-btn"
+                  onClick={() => setCurrentStepIdx(Math.min(searchResult.history.length - 1, currentStepIdx + 1))}
+                  disabled={currentStepIdx === searchResult.history.length - 1}
+                  style={{ width: '24px', height: '24px', opacity: currentStepIdx === searchResult.history.length - 1 ? 0.3 : 1 }}
+                >
+                  <ChevronRight size={14} strokeWidth={1.25} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Module 2: Focus Profile Curve & Search Probes */}
+          <div>
+            <div className="matte-section-h2">
+              <span>Focus Profile Curve & Trajectory</span>
+              <span className="mono-metric" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                Peak Target: Frame {gtPeak}
+              </span>
+            </div>
+            
+            <div style={{ height: '220px', width: '100%', position: 'relative' }}>
+              <Line data={chartData} options={chartOptions} />
+            </div>
+          </div>
+
+          {/* Module 3: Numbered Table Rows (Section 4.3 & 6.1) */}
+          {/* Zero horizontal divider lines, vertical whitespace separation */}
+          {searchResult && searchResult.history && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Dynamic ROI Zones (Top-K)</span>
-                <span style={{ fontWeight: '600', color: 'var(--accent-blue)' }}>K = {topK}</span>
+              <div className="matte-section-h2">
+                <span>Probe Iteration Log</span>
+                <span className="mono-metric" style={{ fontSize: '11px', color: 'var(--accent-cyan)' }}>
+                  {searchResult.frames_read} reads ({(100 - searchResult.frames_read / 1.99).toFixed(1)}% cut)
+                </span>
               </div>
-              <input 
-                type="range" 
-                min="1" 
-                max="5" 
-                value={topK}
-                onChange={(e) => setTopK(parseInt(e.target.value))}
-                style={{ width: '100%', accentColor: 'var(--accent-blue)', cursor: 'pointer' }}
-              />
-              <span style={{ fontSize: '10.5px', color: 'var(--text-tertiary)' }}>Rejects empty vacuum & charging frame edges</span>
-            </div>
-          </div>
 
-          {/* Quick Preset Action */}
-          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '12px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block', marginBottom: '6px' }}>Recommended Setup for Active Stack:</span>
-            <button 
-              className="groove-btn-action" 
-              style={{ width: '100%', fontSize: '11.5px', justifyContent: 'flex-start' }}
-              onClick={() => {
-                if (currentDataset.includes('spd5')) {
-                  setSearchMethod('s2_hybrid');
-                  setFmo('m10_tensor');
-                  setUseAnscombe(true);
-                } else {
-                  setSearchMethod('s1_fibonacci');
-                  setFmo('m1_scharr');
-                  setUseAnscombe(false);
-                }
-              }}
-            >
-              <CheckCircle2 size={13} color="#107C41" />
-              Auto-Apply Optimal (PDF Tournament Winner)
-            </button>
-          </div>
-        </div>
-
-        {/* Groove Music Style Probe Tracklist */}
-        {searchResult && searchResult.history && (
-          <div className="win-card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-tertiary)' }}>
-                Probe Sequence ({searchResult.history.length})
-              </span>
-              <span style={{ fontSize: '11px', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
-                {searchResult.frames_read} reads
-              </span>
-            </div>
-
-            <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
               {(() => {
                 const maxHistScore = Math.max(...searchResult.history.map(s => s.score || 0), 1e-6);
                 return (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <table className="matte-table tabular-nums">
                     <tbody>
                       {searchResult.history.map((step, idx) => {
                         const isActive = currentStepIdx === idx;
@@ -429,24 +429,19 @@ export default function LiveStudio({
                           <tr 
                             key={idx}
                             onClick={() => setCurrentStepIdx(idx)}
-                            style={{
-                              cursor: 'pointer',
-                              background: isActive ? 'rgba(0, 183, 195, 0.14)' : 'transparent',
-                              borderLeft: isActive ? '3px solid var(--accent-cyan)' : '3px solid transparent',
-                              color: isActive ? '#FFFFFF' : 'var(--text-secondary)'
-                            }}
+                            className={`matte-table-row ${isActive ? 'active' : ''}`}
                           >
-                            <td style={{ padding: '6px 8px', width: '24px', opacity: 0.6, fontFamily: 'var(--font-mono)', fontSize: '11px' }}>
+                            <td className="matte-table-index">
                               {idx + 1}
                             </td>
-                            <td style={{ padding: '6px 8px', fontWeight: isActive ? '600' : '400' }}>
+                            <td className="matte-table-primary">
                               Frame {step.idx}
                             </td>
-                            <td style={{ padding: '6px 8px', fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                            <td className="matte-table-secondary">
                               {step.stage}
                             </td>
-                            <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '11px', color: step.idx === gtPeak ? '#107C41' : 'inherit' }}>
-                              {pct}%
+                            <td className="matte-table-value" style={{ color: step.idx === gtPeak ? 'var(--status-success)' : 'inherit' }}>
+                              {pct}% score
                             </td>
                           </tr>
                         );
@@ -456,191 +451,190 @@ export default function LiveStudio({
                 );
               })()}
             </div>
-          </div>
-        )}
-      </div>
-
-        {/* Right Column: Visualizer, Trajectory Curve & Metrics */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Micrograph Visualizer & Scrubber Card */}
-          <div className="win-card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Eye size={16} color="var(--accent-cyan)" />
-                <h3 style={{ fontSize: '14px', fontWeight: '600' }}>
-                  Micrograph Inspection (Frame z = {viewedFrameIdx})
-                </h3>
-              </div>
-
-              {/* Status Pills */}
-              <div style={{ display: 'flex', gap: '8px' }}>
-                {viewedFrameIdx === gtPeak && (
-                  <span className="badge-pill badge-green">★ True Focal Plane</span>
-                )}
-                <span className="badge-pill badge-cyan">
-                  {currentStep ? `${currentStep.stage} (Stride ${currentStep.stride})` : 'Idle'}
-                </span>
-              </div>
-            </div>
-
-            {/* Micrograph Frame Container with ROI Overlay */}
-            <div style={{ 
-              position: 'relative', 
-              width: '100%', 
-              height: '380px', 
-              background: '#000', 
-              borderRadius: '6px', 
-              overflow: 'hidden',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '1px solid var(--border-subtle)'
-            }}>
-              <img 
-                src={`/api/frame/${currentDataset}/${viewedFrameIdx}?overlay_rois=true&top_k=${topK}&anscombe=${useAnscombe}`}
-                alt={`SEM Frame ${viewedFrameIdx}`}
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-              />
-
-              {/* Overlay HUD stats */}
-              <div style={{
-                position: 'absolute',
-                bottom: '12px',
-                left: '12px',
-                background: 'rgba(0, 0, 0, 0.8)',
-                backdropFilter: 'blur(8px)',
-                padding: '6px 12px',
-                borderRadius: '4px',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                fontSize: '11px',
-                color: '#fff',
-                display: 'flex',
-                gap: '14px'
-              }}>
-                <span><b>Z-Index:</b> {viewedFrameIdx} / {totalFrames - 1}</span>
-                <span><b>Top-K ROIs:</b> {topK} Locked</span>
-                <span><b>Anscombe:</b> {useAnscombe ? 'Active' : 'Off'}</span>
-              </div>
-            </div>
-
-            {/* Trajectory Playback Scrubber */}
-            {searchResult && searchResult.history && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-surface)', padding: '8px 14px', borderRadius: '4px' }}>
-                <button 
-                  className="groove-btn-action"
-                  onClick={() => setIsPlaying(!isPlaying)}
-                  style={{ padding: '5px 10px' }}
-                >
-                  <Play size={13} fill={isPlaying ? "currentColor" : "none"} />
-                  {isPlaying ? 'Pause' : 'Play'}
-                </button>
-
-                <button 
-                  className="groove-btn-action"
-                  onClick={() => setCurrentStepIdx(Math.max(0, currentStepIdx - 1))}
-                  disabled={currentStepIdx === 0}
-                  style={{ padding: '5px 8px' }}
-                >
-                  <ChevronLeft size={14} />
-                </button>
-
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <input 
-                    type="range"
-                    min="0"
-                    max={searchResult.history.length - 1}
-                    value={currentStepIdx}
-                    onChange={(e) => setCurrentStepIdx(parseInt(e.target.value))}
-                    style={{ flex: 1, accentColor: 'var(--accent-cyan)', cursor: 'pointer' }}
-                  />
-                  <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', minWidth: '85px', textAlign: 'right' }}>
-                    Step {currentStepIdx + 1} / {searchResult.history.length}
-                  </span>
-                </div>
-
-                <button 
-                  className="groove-btn-action"
-                  onClick={() => setCurrentStepIdx(Math.min(searchResult.history.length - 1, currentStepIdx + 1))}
-                  disabled={currentStepIdx === searchResult.history.length - 1}
-                  style={{ padding: '5px 8px' }}
-                >
-                  <ChevronRight size={14} />
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Interactive Trajectory Focus Curve Chart */}
-          <div className="win-card" style={{ height: '260px', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <TrendingUp size={14} color="#00E5FF" />
-                Focus Curve Trajectory & Search Probe Stepping
-              </span>
-              <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                Peak Target: Frame {gtPeak}
-              </span>
-            </div>
-            <div style={{ flex: 1, position: 'relative' }}>
-              <Line data={chartData} options={chartOptions} />
-            </div>
-          </div>
-
-          {/* HUD Performance Metrics Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
-            {/* Peak Lock Card */}
-            <div className="win-card" style={{ padding: '14px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: '600' }}>
-                Peak Lock (z*)
-              </span>
-              <div style={{ fontSize: '24px', fontWeight: '700', color: searchResult && searchResult.discrete_peak === gtPeak ? '#107C41' : 'var(--text-primary)', marginTop: '4px' }}>
-                {searchResult ? searchResult.discrete_peak : gtPeak}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Sub-frame: <b>{searchResult?.subframe_peak_gauss || gtPeak}</b> (Gaussian Log)
-              </div>
-            </div>
-
-            {/* Error Card */}
-            <div className="win-card" style={{ padding: '14px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: '600' }}>
-                Localization Error
-              </span>
-              <div style={{ fontSize: '24px', fontWeight: '700', color: searchResult?.stats?.discrete_error_frames === 0 ? '#107C41' : '#D83B01', marginTop: '4px' }}>
-                {searchResult?.stats?.discrete_error_frames !== undefined ? `${searchResult.stats.discrete_error_frames} frames` : '0 frames'}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Sub-frame Err: <b>{searchResult?.stats?.subframe_error || '0.00'} Δz</b>
-              </div>
-            </div>
-
-            {/* I/O Frames Read Card */}
-            <div className="win-card" style={{ padding: '14px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: '600' }}>
-                Disk I/O Reduction
-              </span>
-              <div style={{ fontSize: '24px', fontWeight: '700', color: 'var(--accent-cyan)', marginTop: '4px' }}>
-                {searchResult?.stats?.io_reduction_pct !== undefined ? `${searchResult.stats.io_reduction_pct}%` : '94.0%'}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Reads: <b>{searchResult?.frames_read || 12} / {totalFrames}</b> frames
-              </div>
-            </div>
-
-            {/* Latency Card */}
-            <div className="win-card" style={{ padding: '14px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: '600' }}>
-                Wall-Clock Latency
-              </span>
-              <div style={{ fontSize: '24px', fontWeight: '700', color: '#0078D4', marginTop: '4px' }}>
-                {searchResult?.wall_clock_ms !== undefined ? `${searchResult.wall_clock_ms} ms` : '5.8 ms'}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                PSR Prominence: <b>{searchResult?.stats?.peak_sharpness_ratio_psr || '20.2'}</b>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
+
+        {/* ------------------------------------------------------------- */}
+        {/* RIGHT CONTEXT RAIL (Section 4.3, Fixed 290px)                  */}
+        {/* 64x64 Square Preview + Title/Subtitle Stack                   */}
+        {/* ------------------------------------------------------------- */}
+        <aside className="matte-context-rail">
+          {/* Section Header */}
+          <div className="matte-section-h2">
+            <span>Algorithm Presets</span>
+          </div>
+
+          {/* Stacked 64x64 Media / Preset Cards */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Preset 1: Universal Champion */}
+            <button 
+              className={`matte-context-item ${searchMethod === 's2_hybrid' && fmo === 'm1_scharr' ? 'active' : ''}`}
+              onClick={() => {
+                setSearchMethod('s2_hybrid');
+                setFmo('m1_scharr');
+                setUseAnscombe(false);
+              }}
+            >
+              <img 
+                src={`/api/frame/${currentDataset}/${gtPeak}?overlay_rois=false`} 
+                alt="S2 Scharr" 
+                className="matte-context-thumb"
+              />
+              <div className="matte-context-meta">
+                <span className="matte-context-title">S2: Hybrid + M1 Scharr</span>
+                <span className="matte-context-subtitle">100% Zero-Error • 28f • 30.9ms</span>
+              </div>
+            </button>
+
+            {/* Preset 2: High-Speed Scout */}
+            <button 
+              className={`matte-context-item ${searchMethod === 's1_fibonacci' && fmo === 'm9_normvar' ? 'active' : ''}`}
+              onClick={() => {
+                setSearchMethod('s1_fibonacci');
+                setFmo('m9_normvar');
+                setUseAnscombe(false);
+              }}
+            >
+              <div className="matte-context-thumb" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Sparkles size={24} strokeWidth={1.25} color="var(--accent-cyan)" />
+              </div>
+              <div className="matte-context-meta">
+                <span className="matte-context-title">S1: Fibonacci + M9</span>
+                <span className="matte-context-subtitle">12 frames read • 6.9ms Scout</span>
+              </div>
+            </button>
+
+            {/* Preset 3: Extreme Noise Cryo-EM */}
+            <button 
+              className={`matte-context-item ${searchMethod === 's2_hybrid' && fmo === 'm10_tensor' ? 'active' : ''}`}
+              onClick={() => {
+                setSearchMethod('s2_hybrid');
+                setFmo('m10_tensor');
+                setUseAnscombe(true);
+              }}
+            >
+              <div className="matte-context-thumb" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Eye size={24} strokeWidth={1.25} color="var(--status-warning)" />
+              </div>
+              <div className="matte-context-meta">
+                <span className="matte-context-title">S2: Hybrid + M10 Tensor</span>
+                <span className="matte-context-subtitle">Anscombe Poisson • ±0.027 Δz</span>
+              </div>
+            </button>
+
+            {/* Preset 4: Batched Camera SDKs */}
+            <button 
+              className={`matte-context-item ${searchMethod === 's4_speculative' ? 'active' : ''}`}
+              onClick={() => {
+                setSearchMethod('s4_speculative');
+                setFmo('m1_scharr');
+                setUseAnscombe(false);
+              }}
+            >
+              <div className="matte-context-thumb" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <TrendingUp size={24} strokeWidth={1.25} color="#8764B8" />
+              </div>
+              <div className="matte-context-meta">
+                <span className="matte-context-title">S4: Speculative Parallel</span>
+                <span className="matte-context-subtitle">2-burst I/O batch • 23f</span>
+              </div>
+            </button>
+          </div>
+
+          {/* Parameters Group (Section 6.2) */}
+          <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className="matte-group-header">
+              <span>PARAMETER CONTROLS</span>
+            </div>
+
+            {/* Search Strategy */}
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                Search Strategy
+              </label>
+              <select 
+                className="matte-select" 
+                style={{ width: '100%' }}
+                value={searchMethod}
+                onChange={(e) => setSearchMethod(e.target.value)}
+              >
+                <option value="s1_fibonacci">S1 — Fibonacci Lattice (~12 reads)</option>
+                <option value="s2_hybrid">S2 — Hybrid Coarse-Fine (Universal)</option>
+                <option value="s3_pyramid">S3 — Pyramid Bracket (Decimation)</option>
+                <option value="s4_speculative">S4 — Speculative (2 Batches)</option>
+                <option value="baseline_global">Global Scan (200 frames baseline)</option>
+              </select>
+            </div>
+
+            {/* Focus Measure Operator */}
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                Focus Measure Operator
+              </label>
+              <select 
+                className="matte-select" 
+                style={{ width: '100%' }}
+                value={fmo}
+                onChange={(e) => setFmo(e.target.value)}
+              >
+                <option value="m1_scharr">M1: Scharr-Tenengrad (Universal)</option>
+                <option value="m2_brenner">M2: Denoised Brenner (Fastest)</option>
+                <option value="m3_sml">M3: Modified Laplacian (SML)</option>
+                <option value="m4_steerable">M4: Steerable G1 (Orientation)</option>
+                <option value="m5_morph">M5: Top-Hat Morph (Spikes)</option>
+                <option value="m6_wavelet">M6: 2D Haar Wavelet (PSR)</option>
+                <option value="m7_dct">M7: DCT Mid-Band AC</option>
+                <option value="m8_fft">M8: Fourier Radial CTF</option>
+                <option value="m9_normvar">M9: Normalized Variance (Wide)</option>
+                <option value="m10_tensor">M10: Structure Tensor (Heavy Noise)</option>
+              </select>
+            </div>
+
+            {/* Anscombe Stabilization */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+              <div>
+                <span style={{ fontSize: '12px', fontWeight: '500', display: 'block', color: 'var(--text-primary)' }}>Anscombe Stabilization</span>
+                <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Poisson 2·√(I+3/8) filter</span>
+              </div>
+              <input 
+                type="checkbox" 
+                checked={useAnscombe}
+                onChange={(e) => setUseAnscombe(e.target.checked)}
+                style={{ width: '14px', height: '14px', accentColor: 'var(--accent-cyan)', cursor: 'pointer' }}
+              />
+            </div>
+
+            {/* Top-K ROI Zones Slider */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '2px' }}>
+                <span>Dynamic ROI Zones</span>
+                <span className="mono-metric" style={{ color: 'var(--accent-cyan)' }}>Top-K = {topK}</span>
+              </div>
+              <input 
+                type="range"
+                min="1"
+                max="5"
+                value={topK}
+                onChange={(e) => setTopK(parseInt(e.target.value))}
+                className="matte-slider"
+              />
+            </div>
+          </div>
+
+          {/* Stigmator Telemetry Card */}
+          <div style={{ marginTop: '12px', padding: '12px', background: '#1C1D20', border: '1px solid var(--border-card)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <Compass size={14} strokeWidth={1.25} color="var(--accent-cyan)" />
+              <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-primary)' }}>Lens Astigmatism</span>
+            </div>
+            <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }} className="tabular-nums">
+              <div>Status: <b>Aligned</b></div>
+              <div>True Plane: <b>z* = {gtPeak}.0</b></div>
+              <div>Asymmetry Error: <b>0.0 frames</b></div>
+            </div>
+          </div>
+        </aside>
       </div>
+    </div>
   );
 }

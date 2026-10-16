@@ -76,8 +76,8 @@ export default function App() {
   }, []);
 
   return (
-    <div className="win-app-shell">
-      {/* Windows 10 Groove Command Bar / Header */}
+    <div className="matte-app-shell">
+      {/* Dark Matte Command Bar */}
       <Titlebar 
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
@@ -90,9 +90,9 @@ export default function App() {
         onOpenPathModal={() => setIsPathModalOpen(true)}
       />
 
-      {/* Windows 10 Work Area */}
-      <div className="win-work-area">
-        {/* Windows 10 Groove Left Sidebar */}
+      {/* Three-Zone Desktop Architecture Work Area */}
+      <div className="matte-work-area">
+        {/* Zone 1: Left Navigation Rail (240px Fixed, Acrylic) */}
         <Sidebar 
           currentTab={currentTab}
           setCurrentTab={setCurrentTab}
@@ -103,8 +103,8 @@ export default function App() {
           onOpenPathModal={() => setIsPathModalOpen(true)}
         />
 
-        {/* Windows 10 Main Content Canvas */}
-        <main className="win-main-content">
+        {/* Zone 2 & 3: Primary Workspace (Hero Zone + Lower Split Workspace) */}
+        <main className="matte-primary-workspace">
           {currentTab === 'studio' && (
             <LiveStudio 
               currentDataset={currentDataset}
