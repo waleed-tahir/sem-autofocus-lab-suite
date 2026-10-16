@@ -1,0 +1,82 @@
+{
+    "pollen.spd1": {
+        "Global": {
+            "evals_count": 199,
+            "coarse_idx": 99,
+            "fine_idx": 98.85460741352291,
+            "time_ms": 6125.293493270874
+        },
+        "Hill_Climbing": {
+            "evals_count": 6,
+            "coarse_idx": 6,
+            "fine_idx": 5.537810147220657,
+            "time_ms": 172.7139949798584
+        },
+        "Golden_Section": {
+            "evals_count": 10,
+            "coarse_idx": 99,
+            "fine_idx": 98.85460741352291,
+            "time_ms": 295.5174446105957
+        }
+    },
+    "pollen.spd2": {
+        "Global": {
+            "evals_count": 199,
+            "coarse_idx": 98,
+            "fine_idx": 97.62953145545049,
+            "time_ms": 6873.263120651245
+        },
+        "Hill_Climbing": {
+            "evals_count": 7,
+            "coarse_idx": 10,
+            "fine_idx": 10.367882384625918,
+            "time_ms": 275.6505012512207
+        },
+        "Golden_Section": {
+            "evals_count": 11,
+            "coarse_idx": 98,
+            "fine_idx": 97.62953145545049,
+            "time_ms": 433.3457946777344
+        }
+    },
+    "pollen.spd3": {
+        "Global": {
+            "evals_count": 199,
+            "coarse_idx": 97,
+            "fine_idx": 97.16593228090969,
+            "time_ms": 7654.638767242432
+        },
+        "Hill_Climbing": {
+            "evals_count": 4,
+            "coarse_idx": 0,
+            "fine_idx": 0,
+            "time_ms": 152.3594856262207
+        },
+        "Golden_Section": {
+            "evals_count": 11,
+            "coarse_idx": 97,
+            "fine_idx": 97.16593228090969,
+            "time_ms": 439.71824645996094
+        }
+    },
+    "pollen.spd5": {
+        "Global": {
+            "evals_count": 199,
+            "coarse_idx": 97,
+            "fine_idx": 97.16987625650836,
+            "time_ms": 7581.040620803833
+        },
+        "Hill_Climbing": {
+            "evals_count": 17,
+            "coarse_idx": 97,
+            "fine_idx": 97.16987625650836,
+            "time_ms": 671.5216636657715
+        },
+        "Golden_Section": {
+            "evals_count": 11,
+            "coarse_idx": 97,
+            "fine_idx": 97.16987625650836,
+            "time_ms": 407.9470634460449
+        }
+    }
+}
