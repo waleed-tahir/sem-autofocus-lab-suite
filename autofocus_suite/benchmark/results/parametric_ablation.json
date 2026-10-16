@@ -1,0 +1,245 @@
+{
+  "z0_ablation": {
+    "s1_fibonacci": [
+      {
+        "z0": 0,
+        "peak": 95,
+        "error": 0,
+        "reads": 13,
+        "ms": 15.22
+      },
+      {
+        "z0": 20,
+        "peak": 95,
+        "error": 0,
+        "reads": 15,
+        "ms": 6.68
+      },
+      {
+        "z0": 50,
+        "peak": 95,
+        "error": 0,
+        "reads": 16,
+        "ms": 6.59
+      },
+      {
+        "z0": 96,
+        "peak": 95,
+        "error": 0,
+        "reads": 16,
+        "ms": 5.85
+      },
+      {
+        "z0": 140,
+        "peak": 95,
+        "error": 0,
+        "reads": 17,
+        "ms": 6.39
+      },
+      {
+        "z0": 198,
+        "peak": 95,
+        "error": 0,
+        "reads": 18,
+        "ms": 6.21
+      }
+    ],
+    "s2_hybrid": [
+      {
+        "z0": 0,
+        "peak": 96,
+        "error": 1,
+        "reads": 36,
+        "ms": 20.49
+      },
+      {
+        "z0": 20,
+        "peak": 96,
+        "error": 1,
+        "reads": 36,
+        "ms": 21.44
+      },
+      {
+        "z0": 50,
+        "peak": 96,
+        "error": 1,
+        "reads": 36,
+        "ms": 21.19
+      },
+      {
+        "z0": 96,
+        "peak": 97,
+        "error": 2,
+        "reads": 44,
+        "ms": 20.19
+      },
+      {
+        "z0": 140,
+        "peak": 96,
+        "error": 1,
+        "reads": 44,
+        "ms": 20.39
+      },
+      {
+        "z0": 198,
+        "peak": 96,
+        "error": 1,
+        "reads": 44,
+        "ms": 20.31
+      }
+    ],
+    "s3_pyramid": [
+      {
+        "z0": 0,
+        "peak": 97,
+        "error": 2,
+        "reads": 52,
+        "ms": 8.92
+      },
+      {
+        "z0": 20,
+        "peak": 97,
+        "error": 2,
+        "reads": 52,
+        "ms": 9.55
+      },
+      {
+        "z0": 50,
+        "peak": 97,
+        "error": 2,
+        "reads": 52,
+        "ms": 9.22
+      },
+      {
+        "z0": 96,
+        "peak": 96,
+        "error": 1,
+        "reads": 54,
+        "ms": 9.23
+      },
+      {
+        "z0": 140,
+        "peak": 97,
+        "error": 2,
+        "reads": 54,
+        "ms": 9.37
+      },
+      {
+        "z0": 198,
+        "peak": 97,
+        "error": 2,
+        "reads": 54,
+        "ms": 9.33
+      }
+    ],
+    "s4_speculative": [
+      {
+        "z0": 0,
+        "peak": 96,
+        "error": 1,
+        "reads": 54,
+        "ms": 19.68
+      },
+      {
+        "z0": 20,
+        "peak": 96,
+        "error": 1,
+        "reads": 54,
+        "ms": 18.64
+      },
+      {
+        "z0": 50,
+        "peak": 96,
+        "error": 1,
+        "reads": 54,
+        "ms": 18.82
+      },
+      {
+        "z0": 96,
+        "peak": 95,
+        "error": 0,
+        "reads": 54,
+        "ms": 17.53
+      },
+      {
+        "z0": 140,
+        "peak": 96,
+        "error": 1,
+        "reads": 54,
+        "ms": 16.65
+      },
+      {
+        "z0": 198,
+        "peak": 96,
+        "error": 1,
+        "reads": 54,
+        "ms": 17.12
+      }
+    ]
+  },
+  "roi_ablation": [
+    {
+      "k": 1,
+      "peak": 97,
+      "error": 2,
+      "reads": 54,
+      "ms": 7.87
+    },
+    {
+      "k": 2,
+      "peak": 96,
+      "error": 1,
+      "reads": 54,
+      "ms": 14.46
+    },
+    {
+      "k": 3,
+      "peak": 96,
+      "error": 1,
+      "reads": 54,
+      "ms": 20.52
+    },
+    {
+      "k": 4,
+      "peak": 95,
+      "error": 0,
+      "reads": 54,
+      "ms": 26.38
+    },
+    {
+      "k": 5,
+      "peak": 95,
+      "error": 0,
+      "reads": 54,
+      "ms": 32.04
+    },
+    {
+      "k": 6,
+      "peak": 95,
+      "error": 0,
+      "reads": 54,
+      "ms": 38.49
+    },
+    {
+      "k": 7,
+      "peak": 95,
+      "error": 0,
+      "reads": 54,
+      "ms": 44.77
+    },
+    {
+      "k": 8,
+      "peak": 95,
+      "error": 0,
+      "reads": 54,
+      "ms": 49.91
+    },
+    {
+      "k": 9,
+      "peak": 95,
+      "error": 0,
+      "reads": 54,
+      "ms": 55.54
+    }
+  ]
+}

@@ -47,6 +47,7 @@ class AutofocusEngine:
         search_method: str = "s2_hybrid",
         top_k_rois: int = 3,
         use_anscombe: bool = False,
+        vst_method: Optional[str] = None,
         first_frame: Optional[int] = None,
         preload_images: bool = False,
         preloaded_cache: Optional[Dict[int, np.ndarray]] = None
@@ -56,6 +57,7 @@ class AutofocusEngine:
         self.search_method = search_method
         self.top_k_rois = top_k_rois
         self.use_anscombe = use_anscombe
+        self.vst_method = vst_method or ("anscombe_unbiased" if use_anscombe else "none")
         self.first_frame = first_frame
 
         # Discover image paths
@@ -121,7 +123,8 @@ class AutofocusEngine:
             img,
             self.active_rois,
             stride=stride,
-            use_anscombe=self.use_anscombe
+            use_anscombe=self.use_anscombe,
+            vst_method=self.vst_method
         )
 
         fmo_key = fmo_override or self.fmo_name

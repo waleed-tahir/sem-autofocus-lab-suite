@@ -46,7 +46,8 @@ export default function LiveStudio({
 }) {
   const [searchMethod, setSearchMethod] = useState('s2_hybrid');
   const [fmo, setFmo] = useState('m1_scharr');
-  const [useAnscombe, setUseAnscombe] = useState(false);
+  const [useAnscombe, setUseAnscombe] = useState(true);
+  const [vstMethod, setVstMethod] = useState('anscombe_unbiased');
   const [topK, setTopK] = useState(3);
   const [firstFrame, setFirstFrame] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
@@ -60,7 +61,7 @@ export default function LiveStudio({
 
   // Load ground truth curve for the dataset & FMO
   useEffect(() => {
-    fetch(`/api/curves/${currentDataset}`)
+    fetch(`/api/curves/${currentDataset}?vst=${vstMethod}`)
       .then(res => res.json())
       .then(data => {
         if (data.curves && data.curves[fmo]) {
@@ -71,7 +72,7 @@ export default function LiveStudio({
         }
       })
       .catch(err => console.error("Could not load curves:", err));
-  }, [currentDataset, fmo]);
+  }, [currentDataset, fmo, vstMethod]);
 
   // Execute Search
   const runAutofocus = async () => {
@@ -86,7 +87,8 @@ export default function LiveStudio({
           fmo: fmo,
           search_method: searchMethod,
           top_k_rois: topK,
-          use_anscombe: useAnscombe,
+          use_anscombe: vstMethod !== 'none',
+          vst_method: vstMethod,
           first_frame: firstFrame
         })
       });
@@ -338,7 +340,7 @@ export default function LiveStudio({
               overflow: 'hidden'
             }}>
               <img 
-                src={`/api/frame/${currentDataset}/${viewedFrameIdx}?overlay_rois=true&top_k=${topK}&anscombe=${useAnscombe}`}
+                src={`/api/frame/${currentDataset}/${viewedFrameIdx}?overlay_rois=true&top_k=${topK}&vst=${vstMethod}`}
                 alt={`Micrograph Frame ${viewedFrameIdx}`}
                 style={{ width: '100%', height: '100%', objectFit: 'contain' }}
               />
@@ -357,9 +359,9 @@ export default function LiveStudio({
                 gap: '14px'
               }} className="tabular-nums">
                 <span><b>Slice:</b> {viewedFrameIdx}</span>
-                <span><b>ROIs:</b> Top-{topK}/9 Locked</span>
-                <span><b>Start Frame:</b> z₀={firstFrame}</span>
-                <span><b>Anscombe:</b> {useAnscombe ? 'On' : 'Off'}</span>
+                <span><b>ROIs:</b> Top-{topK}/9</span>
+                <span><b>Start:</b> z₀={firstFrame}</span>
+                <span><b>VST:</b> {vstMethod === 'anscombe_unbiased' ? 'Anscombe (Mäkitalo-Foi)' : vstMethod === 'msvst' ? 'MSVST Spline' : vstMethod === 'freeman_tukey' ? 'Freeman-Tukey' : vstMethod === 'anscombe_algebraic' ? 'Algebraic (-0.25)' : 'None'}</span>
                 <span><b>Stage:</b> {currentStep ? currentStep.stage : 'Idle'}</span>
               </div>
             </div>
@@ -687,18 +689,50 @@ export default function LiveStudio({
               </div>
             </div>
 
-            {/* Anscombe Stabilization */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
-              <div>
-                <span style={{ fontSize: '12px', fontWeight: '500', display: 'block', color: 'var(--text-primary)' }}>Anscombe Stabilization</span>
-                <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Poisson 2·√(I+3/8) filter</span>
+            {/* Variance Stabilizing Transform (VST) Selector */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                  Variance Stabilization (VST)
+                </label>
+                {vstMethod === 'anscombe_unbiased' && (
+                  <span style={{ fontSize: '9px', color: 'var(--accent-cyan)', fontWeight: '600', letterSpacing: '0.04em' }}>
+                    ★ GOLDEN RULE
+                  </span>
+                )}
+                {vstMethod === 'anscombe_algebraic' && (
+                  <span style={{ fontSize: '9px', color: '#FF453A', fontWeight: '600', letterSpacing: '0.04em' }}>
+                    ⚠ -0.25 BIAS
+                  </span>
+                )}
+                {vstMethod === 'msvst' && (
+                  <span style={{ fontSize: '9px', color: 'var(--status-success)', fontWeight: '600', letterSpacing: '0.04em' }}>
+                    SPLINE MULTISCALE
+                  </span>
+                )}
               </div>
-              <input 
-                type="checkbox" 
-                checked={useAnscombe}
-                onChange={(e) => setUseAnscombe(e.target.checked)}
-                style={{ width: '14px', height: '14px', accentColor: 'var(--accent-cyan)', cursor: 'pointer' }}
-              />
+              <select
+                className="matte-select"
+                style={{ width: '100%' }}
+                value={vstMethod}
+                onChange={(e) => {
+                  setVstMethod(e.target.value);
+                  setUseAnscombe(e.target.value !== 'none');
+                }}
+              >
+                <option value="anscombe_unbiased">Anscombe (Mäkitalo-Foi Unbiased) [Rec]</option>
+                <option value="msvst">MSVST — Multi-Scale Spline (PSR 125)</option>
+                <option value="freeman_tukey">Freeman-Tukey (Count Normalizer)</option>
+                <option value="anscombe_algebraic">Anscombe (Algebraic Biased: -0.25)</option>
+                <option value="none">Raw Detector Counts (No VST)</option>
+              </select>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px', lineHeight: '1.3' }}>
+                {vstMethod === 'anscombe_unbiased' && 'Exact unbiased inverse eliminates dark-count distortion.'}
+                {vstMethod === 'msvst' && 'Dyadic B3-spline à trous filter isolates scale variance (α_j).'}
+                {vstMethod === 'freeman_tukey' && 'Transforms Poisson noise into unit variance N(0, 1).'}
+                {vstMethod === 'anscombe_algebraic' && 'Direct inverse ((y/2)²-3/8) crushes dark specimen regions.'}
+                {vstMethod === 'none' && 'Heteroscedastic Poisson shot noise (Var = λ) active.'}
+              </div>
             </div>
 
             {/* Top-K ROI Zones Slider (Up to 9 Max) */}

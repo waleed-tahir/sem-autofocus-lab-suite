@@ -54,6 +54,7 @@ export default function FmoCurvesView({
   metadata, 
   theme 
 }) {
+  const [selectedVst, setSelectedVst] = useState('anscombe_unbiased');
   const [curveData, setCurveData] = useState(null);
   const [astigData, setAstigData] = useState(null);
   const [isNormalized, setIsNormalized] = useState(true);
@@ -72,7 +73,7 @@ export default function FmoCurvesView({
   const [fmoGroup, setFmoGroup] = useState('all');
 
   useEffect(() => {
-    fetch(`/api/curves/${currentDataset}`)
+    fetch(`/api/curves/${currentDataset}?vst=${selectedVst}`)
       .then(res => res.json())
       .then(data => setCurveData(data))
       .catch(err => console.error("Failed to load curves:", err));
@@ -81,7 +82,7 @@ export default function FmoCurvesView({
       .then(res => res.json())
       .then(data => setAstigData(data))
       .catch(err => console.error("Failed to load astigmatism:", err));
-  }, [currentDataset]);
+  }, [currentDataset, selectedVst]);
 
   const toggleFmo = (key) => {
     setActiveFmos(prev => ({ ...prev, [key]: !prev[key] }));
@@ -257,12 +258,94 @@ export default function FmoCurvesView({
 
       {/* Main Focus Curves Canvas (0px Rectilinear Matte Card) */}
       <div className="matte-card">
+        {/* VST Preconditioning Mode Bar */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          paddingBottom: '12px',
+          borderBottom: '1px solid var(--border-subtle)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Variance Stabilization:
+            </span>
+            <div className="matte-segment-bar">
+              <button 
+                className={`matte-segment-item ${selectedVst === 'anscombe_unbiased' ? 'active' : ''}`}
+                onClick={() => setSelectedVst('anscombe_unbiased')}
+                title="Forward Anscombe + Mäkitalo-Foi exact unbiased inverse (eliminates low-count bias)"
+              >
+                Anscombe (Mäkitalo-Foi) [Rec]
+              </button>
+              <button 
+                className={`matte-segment-item ${selectedVst === 'msvst' ? 'active' : ''}`}
+                onClick={() => setSelectedVst('msvst')}
+                title="Dyadic B3-spline à trous multi-scale variance stabilization (PSR 125)"
+              >
+                MSVST Multi-Scale
+              </button>
+              <button 
+                className={`matte-segment-item ${selectedVst === 'freeman_tukey' ? 'active' : ''}`}
+                onClick={() => setSelectedVst('freeman_tukey')}
+                title="Freeman-Tukey count normalizer: y = √x + √(x+1)"
+              >
+                Freeman-Tukey
+              </button>
+              <button 
+                className={`matte-segment-item ${selectedVst === 'anscombe_algebraic' ? 'active' : ''}`}
+                onClick={() => setSelectedVst('anscombe_algebraic')}
+                title="Direct algebraic inverse: (y/2)²-3/8 (introduces severe -0.25 count distortion)"
+              >
+                Anscombe (Algebraic Biased)
+              </button>
+              <button 
+                className={`matte-segment-item ${selectedVst === 'none' ? 'active' : ''}`}
+                onClick={() => setSelectedVst('none')}
+                title="Raw unconditioned sensor counts"
+              >
+                Raw Counts (No VST)
+              </button>
+            </div>
+          </div>
+
+          <div style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {selectedVst === 'anscombe_unbiased' && (
+              <span style={{ color: 'var(--accent-cyan)', fontWeight: '500' }}>
+                ★ Golden Rule Active: Exact Unbiased Inverse eliminates low-count bias.
+              </span>
+            )}
+            {selectedVst === 'anscombe_algebraic' && (
+              <span style={{ color: '#FF453A', fontWeight: '500' }}>
+                ⚠ Biased Baseline: Algebraic inverse ((y/2)²-3/8) incurs -0.25 count bias.
+              </span>
+            )}
+            {selectedVst === 'msvst' && (
+              <span style={{ color: 'var(--status-success)', fontWeight: '500' }}>
+                ⚡ MSVST Active: Multiscale B3-spline boosts Peak Sharpness Ratio (PSR) up to 124.9.
+              </span>
+            )}
+            {selectedVst === 'freeman_tukey' && (
+              <span style={{ color: 'var(--text-secondary)' }}>
+                ✓ Freeman-Tukey: Homoscedastic Poisson stabilization: Var(y) ≈ 1.
+              </span>
+            )}
+            {selectedVst === 'none' && (
+              <span style={{ color: 'var(--text-muted)' }}>
+                ○ Raw Detector: Heteroscedastic electron shot noise active.
+              </span>
+            )}
+          </div>
+        </div>
+
         {/* FMO Toggle Swatches (Strict 0px geometry) */}
         <div style={{ 
           display: 'flex', 
           flexWrap: 'wrap', 
           gap: '8px', 
-          paddingBottom: '12px', 
+          padding: '12px 0', 
           borderBottom: '1px solid var(--border-subtle)' 
         }}>
           {Object.keys(FMO_COLORS).map(key => {
