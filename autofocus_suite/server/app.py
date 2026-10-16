@@ -58,6 +58,7 @@ class RunSearchRequest(BaseModel):
     search_method: str = "s2_hybrid"
     top_k_rois: int = 3
     use_anscombe: bool = False
+    first_frame: Optional[int] = None
 
 
 @app.get("/api/status")
@@ -233,7 +234,8 @@ def run_live_search(req: RunSearchRequest) -> Dict[str, Any]:
         fmo=req.fmo,
         search_method=req.search_method,
         top_k_rois=req.top_k_rois,
-        use_anscombe=req.use_anscombe
+        use_anscombe=req.use_anscombe,
+        first_frame=req.first_frame
     )
 
     result = engine.run_autofocus(ground_truth_peak=z_gt, reference_curve=ref_curve)
@@ -292,8 +294,18 @@ def get_frame(
             if rank >= top_k:
                 cv2.rectangle(bgr, (x0, y0), (x1, y1), (180, 100, 50), 1)
 
-        # Draw selected Top-K zones in bright Apple emerald/cyan
-        colors = [(60, 230, 80), (0, 215, 255), (240, 150, 40)]
+        # Draw selected Top-K zones in distinct high-contrast colors (up to 9 zones)
+        colors = [
+            (80, 230, 60),    # Emerald
+            (255, 215, 0),    # Cyan
+            (40, 150, 240),   # Orange
+            (200, 100, 255),  # Magenta
+            (255, 80, 180),   # Violet
+            (255, 200, 50),   # Sky
+            (50, 220, 255),   # Yellow
+            (150, 255, 100),  # Lime
+            (80, 80, 255)     # Coral Red
+        ]
         for rank, (_, (y0, y1, x0, x1)) in enumerate(candidates[:top_k]):
             col = colors[rank % len(colors)]
             cv2.rectangle(bgr, (x0, y0), (x1, y1), col, 2)

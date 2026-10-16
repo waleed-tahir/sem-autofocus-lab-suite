@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Play, 
+  Pause,
   RotateCcw, 
+  SkipBack,
   ChevronLeft, 
   ChevronRight, 
   FolderOpen,
   Eye, 
-  TrendingUp,
-  Clock,
-  Sparkles,
-  Compass,
-  Check
+  TrendingUp, 
+  Clock, 
+  Sparkles, 
+  Compass, 
+  Check 
 } from 'lucide-react';
 import {
   Chart as ChartJS,
@@ -46,6 +48,7 @@ export default function LiveStudio({
   const [fmo, setFmo] = useState('m1_scharr');
   const [useAnscombe, setUseAnscombe] = useState(false);
   const [topK, setTopK] = useState(3);
+  const [firstFrame, setFirstFrame] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
 
   const [searchResult, setSearchResult] = useState(null);
@@ -83,14 +86,14 @@ export default function LiveStudio({
           fmo: fmo,
           search_method: searchMethod,
           top_k_rois: topK,
-          use_anscombe: useAnscombe
+          use_anscombe: useAnscombe,
+          first_frame: firstFrame
         })
       });
       const data = await res.json();
       setSearchResult(data);
-      if (data.history && data.history.length > 0) {
-        setCurrentStepIdx(data.history.length - 1);
-      }
+      // Ensure replay slider returns to start (Step 1) and prepares to run/replay again
+      setCurrentStepIdx(0);
     } catch (err) {
       console.error("Autofocus run failed:", err);
     } finally {
@@ -114,6 +117,30 @@ export default function LiveStudio({
     }
     return () => clearInterval(timer);
   }, [isPlaying, searchResult]);
+
+  const togglePlayback = () => {
+    if (isPlaying) {
+      setIsPlaying(false);
+    } else {
+      if (searchResult && searchResult.history && searchResult.history.length > 0) {
+        if (currentStepIdx >= searchResult.history.length - 1) {
+          setCurrentStepIdx(0);
+        }
+      }
+      setIsPlaying(true);
+    }
+  };
+
+  const returnToStart = () => {
+    setIsPlaying(false);
+    setCurrentStepIdx(0);
+  };
+
+  const handleReset = () => {
+    setIsPlaying(false);
+    setCurrentStepIdx(0);
+    setSearchResult(null);
+  };
 
   // Current frame being viewed
   const currentStep = searchResult && searchResult.history && searchResult.history[currentStepIdx];
@@ -234,8 +261,8 @@ export default function LiveStudio({
               {showMetadata ? 'HIDE METADATA' : 'MORE METADATA'}
             </button>
             {showMetadata && (
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }} className="mono-metric">
-                Target z*={gtPeak} • PSF Gaussian Fit • Top-K={topK} ROIs
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }} className="mono-metric tabular-nums">
+                Target z*={gtPeak} • Start z₀={firstFrame} • PSF Gaussian Fit • Top-{topK}/9 ROIs
               </span>
             )}
           </div>
@@ -260,14 +287,11 @@ export default function LiveStudio({
               <span>{isRunning ? 'Optimizing' : 'Run'}</span>
             </button>
 
-            {/* Wireframe Reset */}
+            {/* Wireframe Reset: returns to start and prepares to run again */}
             <button 
               className="matte-wireframe-btn"
-              onClick={() => {
-                setSearchResult(null);
-                setCurrentStepIdx(0);
-              }}
-              title="Reset Search State"
+              onClick={handleReset}
+              title="Reset Search State & Prepare to Run Again"
             >
               <RotateCcw size={16} strokeWidth={1.25} />
             </button>
@@ -296,7 +320,7 @@ export default function LiveStudio({
           <div>
             <div className="matte-section-h2">
               <span>In Library — Micrograph Inspection</span>
-              <span className="mono-metric" style={{ fontSize: '12px', fontWeight: '400', color: viewedFrameIdx === gtPeak ? 'var(--status-success)' : 'var(--text-muted)' }}>
+              <span className="mono-metric tabular-nums" style={{ fontSize: '12px', fontWeight: '400', color: viewedFrameIdx === gtPeak ? 'var(--status-success)' : 'var(--text-muted)' }}>
                 Frame z = {viewedFrameIdx} / {totalFrames - 1} {viewedFrameIdx === gtPeak ? '(True Peak)' : ''}
               </span>
             </div>
@@ -333,27 +357,46 @@ export default function LiveStudio({
                 gap: '14px'
               }} className="tabular-nums">
                 <span><b>Slice:</b> {viewedFrameIdx}</span>
-                <span><b>ROIs:</b> Top-{topK} Locked</span>
+                <span><b>ROIs:</b> Top-{topK}/9 Locked</span>
+                <span><b>Start Frame:</b> z₀={firstFrame}</span>
                 <span><b>Anscombe:</b> {useAnscombe ? 'On' : 'Off'}</span>
                 <span><b>Stage:</b> {currentStep ? currentStep.stage : 'Idle'}</span>
               </div>
             </div>
 
-            {/* Trajectory Playback Scrubber (Custom 2px track slider) */}
+            {/* Trajectory Playback Scrubber (Custom 2px track slider with replay return to start) */}
             {searchResult && searchResult.history && (
               <div style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: '16px', 
+                gap: '10px', 
                 padding: '8px 0', 
                 marginTop: '4px' 
               }}>
+                {/* Return to Start (SkipBack) */}
                 <button 
                   className="matte-wireframe-btn"
-                  onClick={() => setIsPlaying(!isPlaying)}
+                  onClick={returnToStart}
+                  title="Return slider to start (Step 1) and prepare to run again"
                   style={{ width: '28px', height: '28px' }}
                 >
-                  <Play size={14} strokeWidth={1.25} />
+                  <SkipBack size={14} strokeWidth={1.25} />
+                </button>
+
+                {/* Play / Pause / Replay toggle */}
+                <button 
+                  className="matte-wireframe-btn"
+                  onClick={togglePlayback}
+                  title={isPlaying ? "Pause Trajectory" : (currentStepIdx >= searchResult.history.length - 1 ? "Replay Trajectory from Start" : "Play Trajectory")}
+                  style={{ width: '28px', height: '28px' }}
+                >
+                  {isPlaying ? (
+                    <Pause size={14} strokeWidth={1.25} color="var(--accent-cyan)" />
+                  ) : currentStepIdx >= searchResult.history.length - 1 ? (
+                    <RotateCcw size={14} strokeWidth={1.25} color="var(--accent-cyan)" />
+                  ) : (
+                    <Play size={14} strokeWidth={1.25} />
+                  )}
                 </button>
 
                 <button 
@@ -361,6 +404,7 @@ export default function LiveStudio({
                   onClick={() => setCurrentStepIdx(Math.max(0, currentStepIdx - 1))}
                   disabled={currentStepIdx === 0}
                   style={{ width: '24px', height: '24px', opacity: currentStepIdx === 0 ? 0.3 : 1 }}
+                  title="Previous Step"
                 >
                   <ChevronLeft size={14} strokeWidth={1.25} />
                 </button>
@@ -375,7 +419,7 @@ export default function LiveStudio({
                     onChange={(e) => setCurrentStepIdx(parseInt(e.target.value))}
                     className="matte-slider"
                   />
-                  <span className="mono-metric" style={{ fontSize: '11.5px', color: 'var(--text-muted)', minWidth: '75px', textAlign: 'right' }}>
+                  <span className="mono-metric tabular-nums" style={{ fontSize: '11.5px', color: 'var(--text-muted)', minWidth: '85px', textAlign: 'right' }}>
                     Step {currentStepIdx + 1} / {searchResult.history.length}
                   </span>
                 </div>
@@ -385,8 +429,19 @@ export default function LiveStudio({
                   onClick={() => setCurrentStepIdx(Math.min(searchResult.history.length - 1, currentStepIdx + 1))}
                   disabled={currentStepIdx === searchResult.history.length - 1}
                   style={{ width: '24px', height: '24px', opacity: currentStepIdx === searchResult.history.length - 1 ? 0.3 : 1 }}
+                  title="Next Step"
                 >
                   <ChevronRight size={14} strokeWidth={1.25} />
+                </button>
+
+                {/* Explicit Restart button */}
+                <button 
+                  className="matte-segment-item"
+                  onClick={returnToStart}
+                  title="Return to start (Step 1) and prepare to run again"
+                  style={{ fontSize: '11px', padding: '3px 8px', color: 'var(--text-secondary)' }}
+                >
+                  Restart (z₀)
                 </button>
               </div>
             )}
@@ -396,8 +451,8 @@ export default function LiveStudio({
           <div>
             <div className="matte-section-h2">
               <span>Focus Profile Curve & Trajectory</span>
-              <span className="mono-metric" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                Peak Target: Frame {gtPeak}
+              <span className="mono-metric tabular-nums" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                Target Peak: Frame {gtPeak}
               </span>
             </div>
             
@@ -412,7 +467,7 @@ export default function LiveStudio({
             <div>
               <div className="matte-section-h2">
                 <span>Probe Iteration Log</span>
-                <span className="mono-metric" style={{ fontSize: '11px', color: 'var(--accent-cyan)' }}>
+                <span className="mono-metric tabular-nums" style={{ fontSize: '11px', color: 'var(--accent-cyan)' }}>
                   {searchResult.frames_read} reads ({(100 - searchResult.frames_read / 1.99).toFixed(1)}% cut)
                 </span>
               </div>
@@ -435,7 +490,7 @@ export default function LiveStudio({
                               {idx + 1}
                             </td>
                             <td className="matte-table-primary">
-                              Frame {step.idx}
+                              Frame {step.idx} {idx === 0 && firstFrame !== undefined && step.idx === firstFrame ? '(Start z₀)' : ''}
                             </td>
                             <td className="matte-table-secondary">
                               {step.stage}
@@ -590,6 +645,48 @@ export default function LiveStudio({
               </select>
             </div>
 
+            {/* First / Initial Frame Selection */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '2px' }}>
+                <span>First Frame (z₀)</span>
+                <span className="mono-metric tabular-nums" style={{ color: 'var(--accent-cyan)' }}>z₀ = {firstFrame}</span>
+              </div>
+              <input 
+                type="range"
+                min="0"
+                max={totalFrames - 1}
+                value={firstFrame}
+                onChange={(e) => setFirstFrame(parseInt(e.target.value))}
+                className="matte-slider"
+              />
+              <div style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
+                <button 
+                  type="button" 
+                  className="matte-segment-item" 
+                  style={{ fontSize: '10px', padding: '2px 6px', background: firstFrame === 0 ? 'var(--bg-canvas-primary)' : 'transparent' }}
+                  onClick={() => setFirstFrame(0)}
+                >
+                  z=0
+                </button>
+                <button 
+                  type="button" 
+                  className="matte-segment-item" 
+                  style={{ fontSize: '10px', padding: '2px 6px', background: firstFrame === Math.floor((totalFrames - 1) / 2) ? 'var(--bg-canvas-primary)' : 'transparent' }}
+                  onClick={() => setFirstFrame(Math.floor((totalFrames - 1) / 2))}
+                >
+                  Mid ({Math.floor((totalFrames - 1) / 2)})
+                </button>
+                <button 
+                  type="button" 
+                  className="matte-segment-item" 
+                  style={{ fontSize: '10px', padding: '2px 6px', background: firstFrame === viewedFrameIdx ? 'var(--bg-canvas-primary)' : 'transparent' }}
+                  onClick={() => setFirstFrame(viewedFrameIdx)}
+                >
+                  Viewed ({viewedFrameIdx})
+                </button>
+              </div>
+            </div>
+
             {/* Anscombe Stabilization */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
               <div>
@@ -604,16 +701,16 @@ export default function LiveStudio({
               />
             </div>
 
-            {/* Top-K ROI Zones Slider */}
+            {/* Top-K ROI Zones Slider (Up to 9 Max) */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '2px' }}>
-                <span>Dynamic ROI Zones</span>
-                <span className="mono-metric" style={{ color: 'var(--accent-cyan)' }}>Top-K = {topK}</span>
+                <span>Dynamic ROI Zones (3×3 Grid)</span>
+                <span className="mono-metric tabular-nums" style={{ color: 'var(--accent-cyan)' }}>Top-K = {topK} / 9</span>
               </div>
               <input 
                 type="range"
                 min="1"
-                max="5"
+                max="9"
                 value={topK}
                 onChange={(e) => setTopK(parseInt(e.target.value))}
                 className="matte-slider"

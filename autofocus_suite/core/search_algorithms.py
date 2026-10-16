@@ -20,7 +20,8 @@ def search_fibonacci(
     max_idx: int,
     stride: int = 2,
     fine_stride: int = 1,
-    fmo_name: Optional[str] = None
+    fmo_name: Optional[str] = None,
+    first_frame: Optional[int] = None
 ) -> Tuple[int, Dict[int, float], List[Dict[str, Any]]]:
     """
     S1 — Fibonacci Lattice Search:
@@ -58,6 +59,10 @@ def search_fibonacci(
     x1 = a + fib[n_fib - 2]
     x2 = a + fib[n_fib - 1]
 
+    # Initial user-selected first frame probe if specified
+    if first_frame is not None:
+        probe(first_frame, stride, "initial_frame")
+
     # Initial evaluations clamped to valid stack range
     f1 = probe(min(x1, max_idx), stride, "coarse_fib")
     f2 = probe(min(x2, max_idx), stride, "coarse_fib")
@@ -94,7 +99,8 @@ def search_hybrid_coarse_fine(
     coarse_fmo: str = "composite_m9_m2",
     fine_fmo: Optional[str] = None,
     coarse_stride: int = 4,
-    fine_stride: int = 1
+    fine_stride: int = 1,
+    first_frame: Optional[int] = None
 ) -> Tuple[int, Dict[int, float], List[Dict[str, Any]]]:
     """
     S2 — Hybrid Two-Stage Coarse-to-Fine Sweep (Most Robust):
@@ -128,6 +134,9 @@ def search_hybrid_coarse_fine(
         coarse_indices.append(max_idx)
 
     coarse_scores = {}
+    if first_frame is not None:
+        coarse_scores[first_frame] = probe(first_frame, coarse_stride, coarse_fmo, "initial_frame")
+
     for idx in coarse_indices:
         coarse_scores[idx] = probe(idx, coarse_stride, coarse_fmo, "coarse_grid")
 
@@ -164,7 +173,8 @@ def search_hybrid_coarse_fine(
 def search_pyramid_bracket(
     eval_func: Callable[[int, int, Optional[str]], float],
     max_idx: int,
-    fmo_name: Optional[str] = None
+    fmo_name: Optional[str] = None,
+    first_frame: Optional[int] = None
 ) -> Tuple[int, Dict[int, float], List[Dict[str, Any]]]:
     """
     S3 — Multi-Resolution Pyramid Bracket:
@@ -190,6 +200,9 @@ def search_pyramid_bracket(
     # Tier 1: 9-point global coarse grid (stride 4)
     t1_indices = [int(round(i * max_idx / 8.0)) for i in range(9)]
     t1_scores = {}
+    if first_frame is not None:
+        t1_scores[first_frame] = probe(first_frame, 4, "initial_frame")
+
     for idx in t1_indices:
         t1_scores[idx] = probe(idx, 4, "tier1_global_4x")
 
@@ -221,7 +234,8 @@ def search_speculative_parallel(
     eval_func: Callable[[int, int, Optional[str]], float],
     max_idx: int,
     fmo_name: Optional[str] = None,
-    num_threads: int = 8
+    num_threads: int = 8,
+    first_frame: Optional[int] = None
 ) -> Tuple[int, Dict[int, float], List[Dict[str, Any]]]:
     """
     S4 — Speculative ThreadPool Batch Sweep:
@@ -238,7 +252,16 @@ def search_speculative_parallel(
     if coarse_indices[-1] != max_idx:
         coarse_indices.append(max_idx)
 
-    # Batch 1: Async parallel coarse reads
+    if first_frame is not None:
+        val = eval_func(first_frame, 2, fmo_name)
+        evals[first_frame] = val
+        history.append({
+            "step": len(history) + 1,
+            "idx": first_frame,
+            "score": val,
+            "stride": 2,
+            "stage": "initial_frame"
+        })
     def eval_worker(args):
         idx, stride, stage = args
         val = eval_func(idx, stride, fmo_name)
@@ -291,7 +314,8 @@ def search_global_linear_scan(
     eval_func: Callable[[int, int, Optional[str]], float],
     max_idx: int,
     stride: int = 1,
-    fmo_name: Optional[str] = None
+    fmo_name: Optional[str] = None,
+    first_frame: Optional[int] = None
 ) -> Tuple[int, Dict[int, float], List[Dict[str, Any]]]:
     """
     Baseline: Global Exhaustive Linear Scan.
@@ -304,15 +328,19 @@ def search_global_linear_scan(
     best_idx = 0
     best_score = -float('inf')
 
-    for idx in range(max_idx + 1):
+    order = list(range(max_idx + 1))
+    if first_frame is not None and 0 <= first_frame <= max_idx:
+        order = [first_frame] + [i for i in order if i != first_frame]
+
+    for idx in order:
         val = eval_func(idx, stride, fmo_name)
         evals[idx] = val
         history.append({
-            "step": idx + 1,
+            "step": len(history) + 1,
             "idx": idx,
             "score": val,
             "stride": stride,
-            "stage": "full_linear_scan"
+            "stage": "initial_frame" if idx == first_frame else "full_linear_scan"
         })
         if val > best_score:
             best_score = val
@@ -326,7 +354,8 @@ def search_golden_section(
     max_idx: int,
     stride: int = 1,
     fmo_name: Optional[str] = None,
-    tol: float = 1.0
+    tol: float = 1.0,
+    first_frame: Optional[int] = None
 ) -> Tuple[int, Dict[int, float], List[Dict[str, Any]]]:
     """
     Legacy Golden Section Search:
@@ -349,6 +378,9 @@ def search_golden_section(
             "stage": "golden_section"
         })
         return val
+
+    if first_frame is not None:
+        probe(first_frame)
 
     phi = (math.sqrt(5.0) - 1.0) / 2.0
     a, b = 0.0, float(max_idx)

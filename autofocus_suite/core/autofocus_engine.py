@@ -47,6 +47,7 @@ class AutofocusEngine:
         search_method: str = "s2_hybrid",
         top_k_rois: int = 3,
         use_anscombe: bool = False,
+        first_frame: Optional[int] = None,
         preload_images: bool = False,
         preloaded_cache: Optional[Dict[int, np.ndarray]] = None
     ):
@@ -55,6 +56,7 @@ class AutofocusEngine:
         self.search_method = search_method
         self.top_k_rois = top_k_rois
         self.use_anscombe = use_anscombe
+        self.first_frame = first_frame
 
         # Discover image paths
         self.image_paths = sorted(
@@ -92,11 +94,11 @@ class AutofocusEngine:
 
     def initialize_dynamic_rois(self, sample_idx: Optional[int] = None) -> List[Tuple[int, int, int, int]]:
         """
-        Samples the initial frame (default: middle or first sampled frame)
+        Samples the initial frame (default: user first_frame, or middle frame)
         and computes the Top-K highest-variance MeteringRectangle patches.
         """
         if sample_idx is None:
-            sample_idx = self.max_idx // 2
+            sample_idx = self.first_frame if self.first_frame is not None else (self.max_idx // 2)
         sample_img = self.load_frame(sample_idx)
         self.active_rois = compute_9zone_rois(sample_img, top_k=self.top_k_rois, stride=2)
         return self.active_rois
@@ -152,7 +154,7 @@ class AutofocusEngine:
 
         t0 = time.perf_counter()
 
-        # Run Search Algorithm
+        # Run Search Algorithm with optional user-selected first_frame
         if self.search_method == "s2_hybrid":
             best_idx, evals_dict, history = search_fn(
                 eval_callback,
@@ -160,13 +162,15 @@ class AutofocusEngine:
                 coarse_fmo="composite_m9_m2",
                 fine_fmo=self.fmo_name,
                 coarse_stride=4,
-                fine_stride=1
+                fine_stride=1,
+                first_frame=self.first_frame
             )
         else:
             best_idx, evals_dict, history = search_fn(
                 eval_callback,
                 self.max_idx,
-                fmo_name=self.fmo_name
+                fmo_name=self.fmo_name,
+                first_frame=self.first_frame
             )
 
         t1 = time.perf_counter()
