@@ -47,10 +47,6 @@ QScrollArea {{
     border: none;
 }}
 
-QScrollArea > QWidget > QWidget {{
-    background-color: transparent;
-}}
-
 /* Segmented Navigation Bar */
 QTabWidget#mainTabs::pane {{
     border: 1px solid #e5e5e5;
@@ -206,8 +202,13 @@ QComboBox::down-arrow {{
     height: 14px;
 }}
 
-QComboBox QAbstractItemView {{
+QComboBox QAbstractItemView,
+QComboBox QListView,
+QFrame QComboBox QAbstractItemView,
+QFrame QComboBox QListView,
+QComboBoxPrivateContainer {{
     background-color: #ffffff;
+    color: #1c1c1c;
     border: 1px solid #dcdcdc;
     border-radius: 5px;
     padding: 4px 0px;
@@ -216,9 +217,30 @@ QComboBox QAbstractItemView {{
     outline: none;
 }}
 
-QComboBox QAbstractItemView::item {{
+QComboBox QAbstractItemView::item,
+QComboBox QListView::item,
+QFrame QComboBox QAbstractItemView::item,
+QFrame QComboBox QListView::item {{
     min-height: 24px;
     padding: 4px 10px;
+    color: #1c1c1c;
+    background-color: transparent;
+}}
+
+QComboBox QAbstractItemView::item:hover,
+QComboBox QListView::item:hover,
+QFrame QComboBox QAbstractItemView::item:hover,
+QFrame QComboBox QListView::item:hover {{
+    background-color: #f3f3f3;
+    color: #1c1c1c;
+}}
+
+QComboBox QAbstractItemView::item:selected,
+QComboBox QListView::item:selected,
+QFrame QComboBox QAbstractItemView::item:selected,
+QFrame QComboBox QListView::item:selected {{
+    background-color: #ebf3fc;
+    color: #0067c0;
 }}
 
 /* Authentic Fluent QSpinBox & QDoubleSpinBox */
@@ -367,10 +389,6 @@ QFrame#contentFrame {{
     border-top: none;
     border-bottom-left-radius: 6px;
     border-bottom-right-radius: 6px;
-}}
-
-QFrame#contentFrame QWidget {{
-    background-color: transparent;
 }}
 
 /* Native Tables */
