@@ -159,9 +159,9 @@ QPushButton#primaryButton:pressed, QPushButton[accent="true"]:pressed {{
 }}
 
 QPushButton#primaryButton:disabled, QPushButton[accent="true"]:disabled {{
-    background-color: #f3f3f3;
-    border: 1px solid #e5e5e5;
-    color: #a6a6a6;
+    background-color: #9ac2e6;
+    border: 1px solid #8ab8df;
+    color: #ffffff;
 }}
 
 /* Authentic ComboBox */

@@ -95,6 +95,7 @@ class ResultsTab(QWidget):
         splitter.addWidget(self._build_table_panel())
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 2)
+        splitter.setSizes([480, 260])
 
         layout = QVBoxLayout(self)
         layout.addLayout(self._build_selector_row())
@@ -124,11 +125,13 @@ class ResultsTab(QWidget):
         image_layout.addWidget(self._caption)
 
         coarse_group = QGroupBox("Coarse result (sharpest frame)")
+        coarse_group.setMinimumHeight(210)
         coarse_layout = QVBoxLayout(coarse_group)
         coarse_layout.setContentsMargins(10, 14, 10, 10)
         coarse_layout.addWidget(self._coarse_panel)
 
         fine_group = QGroupBox("Fine result (quadratic fit)")
+        fine_group.setMinimumHeight(210)
         fine_layout = QVBoxLayout(fine_group)
         fine_layout.setContentsMargins(10, 14, 10, 10)
         fine_layout.addWidget(self._fine_panel)
@@ -139,7 +142,7 @@ class ResultsTab(QWidget):
         summary_layout.setSpacing(8)
         summary_layout.addWidget(coarse_group, stretch=1)
         summary_layout.addWidget(fine_group, stretch=1)
-        summaries.setMinimumWidth(340)
+        summaries.setMinimumWidth(380)
 
         panel = QSplitter(Qt.Orientation.Horizontal)
         panel.addWidget(image_group)

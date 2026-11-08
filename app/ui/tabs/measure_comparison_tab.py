@@ -141,14 +141,16 @@ class MeasureComparisonTab(QWidget):
 
         # Right side: plot on top, metrics table below
         table_group = QGroupBox("Peak, Sharpness and Cost Metrics")
+        table_group.setMinimumHeight(220)
         table_layout = QVBoxLayout(table_group)
+        self._table.setMinimumHeight(200)
         table_layout.addWidget(self._table)
 
         right_splitter = QSplitter(Qt.Orientation.Vertical)
         right_splitter.addWidget(self._canvas)
         right_splitter.addWidget(table_group)
-        right_splitter.setStretchFactor(0, 1)
-        right_splitter.setStretchFactor(1, 1)
+        right_splitter.setStretchFactor(0, 3)
+        right_splitter.setStretchFactor(1, 2)
         right_splitter.setSizes([380, 260])
 
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -229,7 +231,11 @@ class MeasureComparisonTab(QWidget):
         selected_keys = checked_keys(self._measure_list)
         available = {t.measure_key for t in self._all_truths_for_dataset()}
         missing_selected = [k for k in selected_keys if k not in available]
-        self._compute_button.setEnabled(has_dataset and len(missing_selected) > 0 and not busy)
+        if missing_selected:
+            self._compute_button.setText(f"Compute missing curves ({len(missing_selected)})")
+        else:
+            self._compute_button.setText("Recompute selected curves")
+        self._compute_button.setEnabled(has_dataset and len(selected_keys) > 0 and not busy)
 
     def _fill_table(self, truths: list[GroundTruth]) -> None:
         fill_table(
@@ -268,6 +274,8 @@ class MeasureComparisonTab(QWidget):
             m_key for m_key in selected_keys
             if self._state.ground_truth_for(dataset.key, m_key) is None
         ]
+        if not pending:
+            pending = list(selected_keys)
         if not pending:
             return
         self._jobs.submit(

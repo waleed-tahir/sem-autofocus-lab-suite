@@ -331,19 +331,19 @@ class InfoPanel(QWidget):
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
         )
         self._label.setWordWrap(False)
-        self._label.setStyleSheet("line-height: 1.4; border: none; background: transparent;")
+        self._label.setStyleSheet("line-height: 1.3; font-size: 11px; border: none; background: transparent;")
 
         area = QScrollArea()
         area.setWidget(self._label)
         area.setWidgetResizable(True)
         area.setFrameShape(QScrollArea.Shape.NoFrame)
-        area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(area)
-        self.setMinimumHeight(145)
+        self.setMinimumHeight(200)
 
     def set_lines(self, lines: Sequence[str]) -> None:
         """Show a block of text, one entry per line."""

@@ -97,6 +97,7 @@ class PlotCanvas(QWidget):
         self.coord_label.setStyleSheet(
             "font-size: 10.5px; color: #5e5e5e; padding-left: 8px; border: none; background: transparent;"
         )
+        self.coord_label.hide()
         header.addWidget(self.coord_label)
         header.addStretch(1)
 
@@ -139,8 +140,10 @@ class PlotCanvas(QWidget):
     def _on_hover(self, event) -> None:
         if event.inaxes and event.xdata is not None and event.ydata is not None:
             self.coord_label.setText(f"X: {event.xdata:.4f} | Y: {event.ydata:.2f}")
+            self.coord_label.show()
         else:
             self.coord_label.setText("")
+            self.coord_label.hide()
 
     def _toggle_pan(self) -> None:
         if self.btn_zoom.isChecked():

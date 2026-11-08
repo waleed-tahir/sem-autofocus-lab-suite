@@ -133,14 +133,16 @@ class SpeedComparisonTab(QWidget):
         plots.setSizes([500, 500])
 
         table_group = QGroupBox("Peak position and curve quality per speed")
+        table_group.setMinimumHeight(220)
         table_layout = QVBoxLayout(table_group)
+        self._table.setMinimumHeight(200)
         table_layout.addWidget(self._table)
 
         splitter = QSplitter(Qt.Orientation.Vertical)
         splitter.addWidget(plots)
         splitter.addWidget(table_group)
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 1)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
         splitter.setSizes([380, 260])
 
         layout = QVBoxLayout(self)
@@ -182,7 +184,11 @@ class SpeedComparisonTab(QWidget):
         self._fill_table(truths)
 
         missing = self._state.dataset_count - len(truths)
-        self._compute_button.setEnabled(missing > 0 and not self._jobs.is_busy)
+        if missing > 0:
+            self._compute_button.setText(f"Compute reference curves ({missing} missing)")
+        else:
+            self._compute_button.setText("Recompute reference curves")
+        self._compute_button.setEnabled(self._state.dataset_count > 0 and not self._jobs.is_busy)
         if self._state.dataset_count == 0:
             self._status.setText("Load some image sets first, on the Datasets tab.")
         elif missing > 0:
@@ -231,13 +237,15 @@ class SpeedComparisonTab(QWidget):
 
     @Slot()
     def _on_compute(self) -> None:
-        """Scan every loaded image set that has no reference curve yet."""
+        """Scan every loaded image set with this measure; if all already scanned, recompute."""
         measure_key = self._measure_key
         pending = [
             dataset
             for dataset in self._state.datasets
             if self._state.ground_truth_for(dataset.key, measure_key) is None
         ]
+        if not pending:
+            pending = list(self._state.datasets)
         if not pending:
             return
         self._jobs.submit(GroundTruthJob(pending, measure_key), lambda _: self.refresh())
@@ -246,7 +254,7 @@ class SpeedComparisonTab(QWidget):
     def _on_busy_changed(self, busy: bool) -> None:
         """Disable the compute button while a job runs."""
         self._compute_button.setEnabled(
-            not busy and self._state.dataset_count > len(self._truths())
+            not busy and self._state.dataset_count > 0
         )
 
     def canvases(self) -> list[PlotCanvas]:
