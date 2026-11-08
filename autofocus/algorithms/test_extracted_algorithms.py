@@ -14,31 +14,31 @@ Verifies:
 from __future__ import annotations
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 import glob
 import cv2
 import numpy as np
 
-from algorithm.normalized_variance import normalized_variance, mean_normalized_variance
-from algorithm.laplacian import (
+from autofocus.algorithms.normalized_variance import normalized_variance, mean_normalized_variance
+from autofocus.algorithms.laplacian import (
     variance_of_laplacian,
     laplacian_of_gaussian,
     modified_laplacian,
     laplacian_focus_score,
 )
-from algorithm.global_scan_search import global_scan_search
-from algorithm.coarse_and_fine_search import coarse_and_fine_search
-from algorithm.gradient_descent_search import (
+from autofocus.algorithms.global_scan_search import global_scan_search
+from autofocus.algorithms.coarse_and_fine_search import coarse_and_fine_search
+from autofocus.algorithms.gradient_descent_search import (
     gradient_descent_search,
     gradient_ascent_search,
     gradient_search,
 )
-from algorithm.quadratic_fit import (
+from autofocus.algorithms.quadratic_fit import (
     quadratic_fit,
     fit_quadratic_vertex,
 )
-from algorithm.coarse_quadratic_search import (
+from autofocus.algorithms.coarse_quadratic_search import (
     coarse_quadratic_search,
     coarse_fit_search,
     coarse_quadratic,
