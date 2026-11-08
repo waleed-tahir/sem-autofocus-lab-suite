@@ -125,15 +125,15 @@ class ResultsTab(QWidget):
         image_layout.addWidget(self._caption)
 
         coarse_group = QGroupBox("Coarse result (sharpest frame)")
-        coarse_group.setMinimumHeight(210)
+        coarse_group.setMinimumHeight(200)
         coarse_layout = QVBoxLayout(coarse_group)
-        coarse_layout.setContentsMargins(10, 14, 10, 10)
+        coarse_layout.setContentsMargins(8, 10, 8, 8)
         coarse_layout.addWidget(self._coarse_panel)
 
         fine_group = QGroupBox("Fine result (quadratic fit)")
-        fine_group.setMinimumHeight(210)
+        fine_group.setMinimumHeight(200)
         fine_layout = QVBoxLayout(fine_group)
-        fine_layout.setContentsMargins(10, 14, 10, 10)
+        fine_layout.setContentsMargins(8, 10, 8, 8)
         fine_layout.addWidget(self._fine_panel)
 
         summaries = QWidget()
@@ -342,21 +342,15 @@ class ResultsTab(QWidget):
         return [
             f"Algorithm:        {result.algorithm}",
             f"Focus measure:    {result.measure}",
-            "",
-            f"Sharpest frame:   {result.coarse_idx}",
-            f"Focus value:      {result.coarse_value:.6f}",
-            f"Working distance: {result.coarse_wd_mm:.5f} mm",
-            "",
-            f"Frames read:      {result.frames_evaluated}"
-            f"   (search alone: {result.search_frames})",
-            f"Score requests:   {result.eval_calls}",
-            f"Run time:         {result.elapsed_ms:.1f} ms"
-            + (f"   (mean of {result.repeats})" if result.repeats > 1 else ""),
-            "",
+            f"Sharpest frame:   {result.coarse_idx}  (WD: {result.coarse_wd_mm:.5f} mm)",
+            f"Focus score:      {result.coarse_value:.6f}",
+            f"Frames read:      {result.frames_evaluated}  (search: {result.search_frames})",
+            f"Score requests:   {result.eval_calls}  ({result.elapsed_ms:.1f} ms)"
+            + (f" [mean of {result.repeats}]" if result.repeats > 1 else ""),
             f"Reference frame:  {result.gt_idx}"
-            f"   (position {_number(result.gt_reference_idx, 3)})",
-            f"Coarse error:     {_number(result.coarse_error_frames, 3)} frames"
-            f"   ({_number(result.coarse_error_um, 2)} um)",
+            + (f"  (pos {_number(result.gt_reference_idx, 3)})" if result.gt_reference_idx is not None else ""),
+            f"Coarse error:     {_number(result.coarse_error_frames, 3)} fr"
+            + (f" ({_number(result.coarse_error_um, 2)} um)" if result.coarse_error_um is not None else ""),
             _verification_line(result),
         ]
 
@@ -366,7 +360,7 @@ class ResultsTab(QWidget):
             return [
                 "No quadratic fit was applied to this run.",
                 "",
-                "Switch \"Apply the quadratic fit to every algorithm\" on,",
+                "Switch 'Apply the quadratic fit to every algorithm' on,",
                 "on the Run tab, and run the algorithm again.",
             ]
 
@@ -375,29 +369,22 @@ class ResultsTab(QWidget):
             "returned by the algorithm"
         )
         lines = [
-            f"Fine frame:       {_number(result.fine_idx, 3)}   (fractional index)",
+            f"Fine frame:       {_number(result.fine_idx, 3)} (fractional index)",
             f"Fine WD:          {_number(result.fine_wd_mm, 5)} mm",
             f"Fitted value:     {_number(result.fine_value, 6)}",
-            "",
             f"Fit status:       {result.fit_status}",
             f"Fit R2:           {_number(result.fit_r2, 5)}",
-            f"Fit window:       frames {lo} to {hi}   ({hi - lo + 1} points)",
+            f"Fit window:       frames {lo} to {hi}  ({hi - lo + 1} points)",
             f"Fit source:       {source}",
         ]
         if result.fit_coeffs is not None:
             a0, a1, a2 = result.fit_coeffs
-            lines += [
-                "",
-                "f(d) = A0 + A1*d + A2*d^2",
-                f"A0 = {a0:.6g}",
-                f"A1 = {a1:.6g}",
-                f"A2 = {a2:.6g}",
-            ]
-        lines += [
-            "",
-            f"Error vs reference: {_number(result.error_frames, 3)} frames"
-            f"   ({_number(result.error_um, 2)} um)",
-        ]
+            lines.append(f"Parabola:         f(d)={a0:.4g} + {a1:.4g}·d + {a2:.4g}·d²")
+        if result.error_frames is not None:
+            lines.append(
+                f"Error vs ref:     {_number(result.error_frames, 3)} fr"
+                + (f" ({_number(result.error_um, 2)} um)" if result.error_um is not None else "")
+            )
         return lines
 
 

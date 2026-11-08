@@ -309,8 +309,10 @@ def set_all_checked(widget: QListWidget, checked: bool) -> None:
 
 def monospace_font(point_size: int = 9) -> QFont:
     """A fixed-width font, so numbers line up in the info panels."""
-    font = QFont("monospace", point_size)
-    font.setStyleHint(QFont.StyleHint.TypeWriter)
+    font = QFont()
+    font.setFamilies(["Cascadia Mono", "Cascadia Code", "Consolas", "Courier New"])
+    font.setPointSize(point_size)
+    font.setStyleHint(QFont.StyleHint.Monospace)
     return font
 
 
@@ -331,7 +333,7 @@ class InfoPanel(QWidget):
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
         )
         self._label.setWordWrap(False)
-        self._label.setStyleSheet("line-height: 1.3; font-size: 11px; border: none; background: transparent;")
+        self._label.setStyleSheet("line-height: 1.25; font-size: 11px; border: none; background: transparent; padding: 0px 2px;")
 
         area = QScrollArea()
         area.setWidget(self._label)
