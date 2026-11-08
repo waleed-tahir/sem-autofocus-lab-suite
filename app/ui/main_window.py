@@ -60,6 +60,29 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(self._tabs)
         self._update_status()
+        self._maybe_load_default_datasets()
+
+    def _maybe_load_default_datasets(self) -> None:
+        """Auto-load sample datasets if a 'datasets' folder exists adjacent to the app or project root."""
+        import sys
+        from pathlib import Path
+        from app.core.dataset import discover_image_folders
+
+        candidates = [
+            Path(sys.executable).parent / "datasets",
+            Path(__file__).resolve().parents[2] / "datasets",
+            Path("datasets"),
+        ]
+        for candidate in candidates:
+            if candidate.is_dir():
+                folders = discover_image_folders(candidate)
+                if folders:
+                    loaded, _ = self._state.add_datasets(folders)
+                    for ds in loaded:
+                        self.datasets_tab._maybe_preload(ds)
+                    if loaded:
+                        self.datasets_tab._select_dataset(loaded[0].key)
+                    break
 
     def _build_tabs(self) -> None:
         """Create the streamlined 4-tab workflows."""
