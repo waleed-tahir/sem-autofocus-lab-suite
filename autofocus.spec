@@ -20,10 +20,11 @@ hiddenimports = [
 ]
 hiddenimports += collect_submodules('pyqtgraph')
 
-# Data files: include app assets and icon
+# Data files: include app assets, icon, and sample SEM datasets
 datas = [
     ('app_icon.ico', '.'),
     ('app/ui/assets/icons', 'app/ui/assets/icons'),
+    ('datasets', 'datasets'),
 ]
 
 a = Analysis(
