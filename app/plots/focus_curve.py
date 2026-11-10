@@ -1,13 +1,13 @@
 """Plot A: Focus curve and Coarse-to-Fine Gradient Ascent trajectory.
 
-Renders:
-1. Global Reference Focus Curve (exhaustive sweep ground truth)
-2. Phase 1: Coarse Step trajectory (cyan line and circular markers #1, #2, ...)
-3. Phase 2: Fine Refinement trajectory (amber/orange line and markers)
-4. Overshoot detection marker (vivid red)
-5. Local tangent line d(NV)/dZ at the active inspection step
-6. Global Peak marker and annotation
-7. Active probe halo indicator
+Styled for Fluent UI Desktop:
+- Pure white background with subtle, elegant Fluent palette
+- Smooth reference curve always drawn in recessive slate grey
+- Phase 1: Coarse Step path in vibrant Fluent Blue (#0078d4)
+- Overshoot marker in vivid Crimson (#dc2626)
+- Phase 2: Fine Refinement path in warm Amber (#d97706)
+- Local tangent line d(NV)/dZ at the active inspection step
+- Zero text clutter on Global Scan (clean continuous trace)
 """
 
 from __future__ import annotations
@@ -17,28 +17,26 @@ from typing import Optional, Sequence, Any, Dict, List
 
 import numpy as np
 from matplotlib.figure import Figure
-from matplotlib.lines import Line2D
 
 from app.core.experiment import GroundTruth
 from app.core.run_result import RunResult
 from app.plots.style import (
     INK_PRIMARY,
     INK_SECONDARY,
+    INK_MUTED,
     SURFACE,
     empty_message,
     finish_figure,
-    frame_index_axis,
-    style_axes,
 )
 
-# Color tokens strictly aligned with lab reference HUD
-COLOR_SWEEP = "#64748b"        # Slate grey for global sweep
-COLOR_COARSE = "#00b4d8"       # Cyan for Phase 1: Coarse Step
-COLOR_FINE = "#f59e0b"         # Amber/orange for Phase 2: Fine Refinement
-COLOR_OVERSHOOT = "#ef233c"    # Vivid red for Overshoot
-COLOR_TANGENT = "#ef233c"      # Red dashed tangent line
-COLOR_PEAK = "#10b981"         # Emerald green for Global Peak
-COLOR_HALO = "#0284c7"         # Active probe highlight
+# Refined Fluent Color Tokens
+COLOR_REF_CURVE = "#94a3b8"     # Elegant slate grey for ground-truth reference curve
+COLOR_COARSE = "#0078d4"        # Fluent Accent Blue for Phase 1: Coarse Step
+COLOR_FINE = "#d97706"          # Warm Amber for Phase 2: Fine Refinement
+COLOR_OVERSHOOT = "#dc2626"     # Crimson for Overshoot
+COLOR_TANGENT = "#ef4444"       # Coral-red dashed tangent line
+COLOR_PEAK = "#059669"          # Emerald green for Global Peak
+COLOR_HALO = "#0067c0"          # Fluent Blue halo for active probe
 
 
 def draw_focus_curve(
@@ -48,27 +46,26 @@ def draw_focus_curve(
     replay_step: Optional[int] = None,
     show_global: bool = True,
 ) -> None:
-    """Draw the focus curve with visited search probes and coarse-to-fine trajectory."""
+    """Draw the smooth focus curve and coarse-to-fine trajectory with Fluent styling."""
     figure.clear()
     if truth is None:
         empty_message(
             figure,
-            "No reference curve yet.\nPress \"Compute reference curve\" or run a search.",
+            "No reference curve yet.\nSelect an image set to inspect its focus curve.",
         )
         return
 
     ax = figure.add_subplot(111)
-    wd_mm = truth.wd_mm
     curve = truth.curve
     num_frames = len(curve)
     indices = np.arange(num_frames)
 
-    # 1. Global sweep curve
+    # 1. Smooth reference focus curve (always underneath)
     if show_global:
         ax.plot(
             indices, curve,
-            color=COLOR_SWEEP, linewidth=1.8, alpha=0.55, zorder=2,
-            label="Show Global Sweep Curve",
+            color=COLOR_REF_CURVE, linewidth=2.0, alpha=0.60, zorder=2,
+            label="Reference Focus Curve",
         )
 
     # 2. Ground-truth Global Peak marker
@@ -77,17 +74,19 @@ def draw_focus_curve(
         peak_val = curve[peak_idx]
         ax.plot(
             [peak_idx], [peak_val],
-            marker="o", markersize=9.0, color=COLOR_PEAK,
-            markeredgecolor="#ffffff", markeredgewidth=1.8,
+            marker="*", markersize=13.0, color=COLOR_PEAK,
+            markeredgecolor="#ffffff", markeredgewidth=1.2,
             linestyle="none", zorder=6,
             label=f"Global Peak Z={peak_idx}",
         )
+        # Clean label with subtle offset
+        y_span = float(np.ptp(curve)) if float(np.ptp(curve)) > 0 else 1.0
         ax.annotate(
             f"Global Peak Z={peak_idx}",
             xy=(peak_idx, peak_val),
-            xytext=(peak_idx, peak_val + (np.ptp(curve) * 0.05 if np.ptp(curve) > 0 else 0.5)),
+            xytext=(peak_idx, peak_val + y_span * 0.04),
             ha="center", va="bottom",
-            fontsize=8.5, fontweight="bold", color=COLOR_PEAK,
+            fontsize=8.5, fontweight="600", color=COLOR_PEAK,
             zorder=7,
         )
 
@@ -95,47 +94,50 @@ def draw_focus_curve(
     for result in results:
         _draw_result_trajectory(ax, truth, result, replay_step=replay_step)
 
-    # 4. Axes and titles styling
+    # 4. Fluent Axes and Typography
     measure_name = truth.measure_name if truth else "Normalized Variance"
     ax.set_title(
         f"{measure_name} Focus Curve & Coarse-to-Fine Gradient Trajectory",
-        fontsize=11.5, fontweight="bold", color=INK_PRIMARY, pad=10,
+        fontsize=11.0, fontweight="600", color=INK_PRIMARY, pad=12,
     )
-    ax.set_xlabel("Focal Plane Z (Index)", fontsize=9.5, color=INK_SECONDARY, labelpad=6)
+    ax.set_xlabel("Focal Plane Z (Frame Index)", fontsize=9.5, color=INK_SECONDARY, labelpad=6)
     ylabel = "Normalized Variance NV (σ²/µ)" if "norm" in measure_name.lower() else "Focus Score"
     ax.set_ylabel(ylabel, fontsize=9.5, color=INK_SECONDARY, labelpad=6)
 
-    # Custom ticks to show Z indices clearly
+    # Fluent X-ticks at clean 20-frame increments
     if num_frames > 0:
-        step_ticks = max(10, num_frames // 10)
+        step_ticks = 20 if num_frames >= 100 else 10
         tick_locs = list(range(0, num_frames, step_ticks))
         if (num_frames - 1) not in tick_locs:
             tick_locs.append(num_frames - 1)
         ax.set_xticks(tick_locs)
-        ax.set_xticklabels([f"Z={t}" for t in tick_locs], fontsize=8.0, color=INK_SECONDARY)
+        ax.set_xticklabels([f"Z={t}" for t in tick_locs], fontsize=8.5, color=INK_MUTED)
 
-    ax.grid(True, linestyle="--", alpha=0.35, color="#cbd5e1", zorder=1)
-    for spine in ax.spines.values():
-        spine.set_color("#cbd5e1")
-        spine.set_linewidth(0.8)
+    # Soft, subtle grid and borders
+    ax.grid(True, linestyle="--", alpha=0.5, color="#e5e7eb", zorder=1)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color("#d1d5db")
+        ax.spines[side].set_linewidth(1.0)
 
-    # Clean legend above or below
+    # Fluent multi-column legend below the chart
     handles, labels = ax.get_legend_handles_labels()
-    # Filter duplicate labels
     by_label = dict(zip(labels, handles))
     if by_label:
         ax.legend(
             by_label.values(), by_label.keys(),
             loc="upper center",
-            bbox_to_anchor=(0.5, -0.14),
+            bbox_to_anchor=(0.5, -0.15),
             ncol=min(5, len(by_label)),
             frameon=True,
             facecolor="#ffffff",
-            edgecolor="#e2e8f0",
+            edgecolor="#e5e5e5",
             fontsize=8.5,
         )
 
-    # Y-axis formatter
+    # Clean Y-axis number formatting
     y_min, y_max = ax.get_ylim()
     y_span = abs(y_max - y_min)
     if y_span < 5:
@@ -154,23 +156,31 @@ def _draw_result_trajectory(
     result: RunResult,
     replay_step: Optional[int] = None,
 ) -> None:
-    """Render the step-by-step coarse-to-fine trajectory."""
-    history: List[Dict[str, Any]] = result.extra.get("history", [])
+    """Render the step-by-step search trajectory."""
     curve = truth.curve
     num_frames = len(curve)
+    history: List[Dict[str, Any]] = result.extra.get("history", [])
 
-    # Fallback to standard visited indices if no history
-    if not history:
+    # Special handling for Global Scan (Exhaustive Scan)
+    # NEVER draw text annotations on 199 points!
+    if result.algorithm_key == "global_scan" or not history:
         visited = [idx for idx in result.visited if 0 <= idx < num_frames]
-        if replay_step is not None:
-            visited = visited[:max(0, replay_step)]
-        if visited:
+        active_visited = visited[:max(0, replay_step)] if replay_step is not None else visited
+        if active_visited:
             ax.plot(
-                visited, [curve[i] for i in visited],
-                color=COLOR_COARSE, marker="o", markersize=6,
-                linewidth=1.8, label=f"{result.algorithm} ({len(visited)} probes)",
+                active_visited, [curve[i] for i in active_visited],
+                color=COLOR_COARSE, linewidth=2.0, linestyle="-",
+                label=f"{result.algorithm} ({len(active_visited)}/{len(visited)} frames)",
                 zorder=4,
             )
+            # Replay active marker
+            if replay_step is not None and active_visited:
+                curr_idx = active_visited[-1]
+                ax.plot(
+                    [curr_idx], [curve[curr_idx]],
+                    marker="o", markersize=10.0, color=COLOR_COARSE,
+                    markeredgecolor="#ffffff", markeredgewidth=2.0, zorder=8,
+                )
         return
 
     # Filter history up to replay_step
@@ -178,35 +188,39 @@ def _draw_result_trajectory(
     if not active_hist:
         return
 
-    # Separate coarse vs fine probes
+    # Coarse path includes INIT, COARSE_PROBE, COARSE, and OVERSHOOT (the climb)
     coarse_pts = []
+    overshoot_pt = None
     fine_pts = []
-    overshoot_pts = []
 
     for item in active_hist:
         z = item.get("z", item.get("idx", 0))
         score = item.get("score", curve[z] if 0 <= z < num_frames else 0.0)
         phase = item.get("phase", "COARSE")
-        step_num = item.get("step", len(coarse_pts) + len(fine_pts) + 1)
+        step_num = item.get("step", 1)
 
         if phase in ("INIT", "COARSE_PROBE", "COARSE"):
             coarse_pts.append((z, score, step_num))
         elif phase == "OVERSHOOT":
-            overshoot_pts.append((z, score, step_num))
+            overshoot_pt = (z, score, step_num)
+            coarse_pts.append((z, score, step_num))
         else:  # FINE, CONVERGED
             fine_pts.append((z, score, step_num))
 
-    # Draw Phase 1: Coarse Step line and markers
+    # Draw Phase 1: Coarse Step line (connecting climb through overshoot)
     if coarse_pts:
         cx = [p[0] for p in coarse_pts]
         cy = [p[1] for p in coarse_pts]
         ax.plot(
             cx, cy,
-            color=COLOR_COARSE, linewidth=2.0, linestyle="-",
+            color=COLOR_COARSE, linewidth=2.2, linestyle="-",
             marker="o", markersize=6.5, markeredgecolor="#ffffff", markeredgewidth=1.2,
             zorder=4, label="Phase 1: Coarse Step",
         )
+        # Annotate step numbers cleanly
         for z, score, num in coarse_pts:
+            if overshoot_pt and (z, score, num) == overshoot_pt:
+                continue  # Overshoot annotated separately
             ax.annotate(
                 f"#{num}", (z, score),
                 xytext=(0, 7), textcoords="offset points",
@@ -214,16 +228,17 @@ def _draw_result_trajectory(
                 ha="center", va="bottom", zorder=5,
             )
 
-    # Draw Overshoot marker
-    for z, score, num in overshoot_pts:
+    # Highlight Overshoot point in vivid Crimson
+    if overshoot_pt:
+        oz, osc, onum = overshoot_pt
         ax.plot(
-            [z], [score],
-            marker="o", markersize=8.0, color=COLOR_OVERSHOOT,
+            [oz], [osc],
+            marker="o", markersize=8.5, color=COLOR_OVERSHOOT,
             markeredgecolor="#ffffff", markeredgewidth=1.5,
             linestyle="none", zorder=6, label="Overshoot",
         )
         ax.annotate(
-            f"#{num}", (z, score),
+            f"#{onum}", (oz, osc),
             xytext=(0, 7), textcoords="offset points",
             fontsize=7.5, fontweight="bold", color=COLOR_OVERSHOOT,
             ha="center", va="bottom", zorder=6,
@@ -235,7 +250,7 @@ def _draw_result_trajectory(
         fy = [p[1] for p in fine_pts]
         ax.plot(
             fx, fy,
-            color=COLOR_FINE, linewidth=2.0, linestyle="-",
+            color=COLOR_FINE, linewidth=2.2, linestyle="-",
             marker="o", markersize=6.5, markeredgecolor="#ffffff", markeredgewidth=1.2,
             zorder=5, label="Phase 2: Fine Refinement",
         )
@@ -256,18 +271,18 @@ def _draw_result_trajectory(
     # Halo on current probe
     ax.plot(
         [curr_z], [curr_score],
-        marker="o", markersize=13.0,
+        marker="o", markersize=14.0,
         color="none", markeredgecolor=COLOR_HALO,
-        markeredgewidth=2.4, zorder=8,
+        markeredgewidth=2.2, zorder=8,
     )
 
-    # Tangent line d(NV)/dZ
+    # Local tangent line d(NV)/dZ (clean short segment around probe)
     if abs(curr_grad) > 1e-6:
-        tangent_span = 12.0
-        tz = np.array([curr_z - tangent_span, curr_z + tangent_span])
+        tangent_span = 8.0
+        tz = np.array([max(0, curr_z - tangent_span), min(num_frames - 1, curr_z + tangent_span)])
         ty = curr_score + curr_grad * (tz - curr_z)
         ax.plot(
             tz, ty,
             color=COLOR_TANGENT, linestyle="--", linewidth=1.8,
-            alpha=0.85, zorder=7, label="Tangent d(NV)/dZ",
+            alpha=0.9, zorder=7, label="Tangent d(NV)/dZ",
         )
