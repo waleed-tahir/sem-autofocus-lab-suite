@@ -139,25 +139,29 @@ class FocusCurveTab(QWidget):
 
     def _build_top_bar(self) -> QWidget:
         bar = QFrame()
-        bar.setStyleSheet("QFrame { background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 6px; }")
+        bar.setObjectName("topBar")
+        bar.setStyleSheet(
+            "QFrame#topBar { background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 6px; } "
+            "QFrame#topBar QLabel { border: none; background: transparent; }"
+        )
         layout = QHBoxLayout(bar)
         layout.setContentsMargins(10, 6, 10, 6)
         layout.setSpacing(12)
 
         lbl_ds = QLabel("Target Image Set:")
-        lbl_ds.setStyleSheet("font-weight: 600; font-size: 11.5px; color: #424242;")
+        lbl_ds.setStyleSheet("border: none; background: transparent; font-weight: 600; font-size: 11.5px; color: #424242;")
         layout.addWidget(lbl_ds)
         self._dataset_combo.setMinimumWidth(180)
         layout.addWidget(self._dataset_combo)
 
         lbl_meas = QLabel("Focus Measure:")
-        lbl_meas.setStyleSheet("font-weight: 600; font-size: 11.5px; color: #424242;")
+        lbl_meas.setStyleSheet("border: none; background: transparent; font-weight: 600; font-size: 11.5px; color: #424242;")
         layout.addWidget(lbl_meas)
         self._measure_combo.setMinimumWidth(190)
         layout.addWidget(self._measure_combo)
 
         lbl_algo = QLabel("Search Algorithm:")
-        lbl_algo.setStyleSheet("font-weight: 600; font-size: 11.5px; color: #424242;")
+        lbl_algo.setStyleSheet("border: none; background: transparent; font-weight: 600; font-size: 11.5px; color: #424242;")
         layout.addWidget(lbl_algo)
         self._algorithm_combo.setMinimumWidth(190)
         layout.addWidget(self._algorithm_combo)
@@ -170,8 +174,10 @@ class FocusCurveTab(QWidget):
 
     def _build_kpi_cards(self) -> QWidget:
         container = QFrame()
+        container.setObjectName("kpiContainer")
         container.setStyleSheet(
-            "QFrame { background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 6px; }"
+            "QFrame#kpiContainer { background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 6px; } "
+            "QFrame#kpiContainer QLabel { border: none; background: transparent; }"
         )
         layout = QHBoxLayout(container)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -179,18 +185,20 @@ class FocusCurveTab(QWidget):
 
         def _make_card(title: str):
             card = QFrame()
+            card.setObjectName("kpiCard")
             card.setStyleSheet(
-                "QFrame { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }"
+                "QFrame#kpiCard { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; } "
+                "QFrame#kpiCard QLabel { border: none; background: transparent; outline: none; }"
             )
             c_lay = QVBoxLayout(card)
             c_lay.setContentsMargins(10, 6, 10, 6)
             c_lay.setSpacing(2)
             lbl_title = QLabel(title.upper())
-            lbl_title.setStyleSheet("font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 0.5px;")
+            lbl_title.setStyleSheet("border: none; background: transparent; font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 0.5px;")
             lbl_val = QLabel("—")
-            lbl_val.setStyleSheet("font-size: 15px; font-weight: 700; color: #0f172a;")
+            lbl_val.setStyleSheet("border: none; background: transparent; font-size: 15px; font-weight: 700; color: #0f172a;")
             lbl_sub = QLabel("—")
-            lbl_sub.setStyleSheet("font-size: 11px; color: #64748b;")
+            lbl_sub.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
             c_lay.addWidget(lbl_title)
             c_lay.addWidget(lbl_val)
             c_lay.addWidget(lbl_sub)
@@ -209,8 +217,10 @@ class FocusCurveTab(QWidget):
 
     def _build_playback_and_param_bar(self) -> QWidget:
         container = QFrame()
+        container.setObjectName("playbackBar")
         container.setStyleSheet(
-            "QFrame { background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 6px; }"
+            "QFrame#playbackBar { background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 6px; } "
+            "QFrame#playbackBar QLabel { border: none; background: transparent; }"
         )
         main_lay = QVBoxLayout(container)
         main_lay.setContentsMargins(10, 8, 10, 8)
@@ -320,8 +330,10 @@ class FocusCurveTab(QWidget):
 
     def _build_telemetry_panel(self) -> QWidget:
         container = QFrame()
+        container.setObjectName("telemetryContainer")
         container.setStyleSheet(
-            "QFrame { background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 6px; }"
+            "QFrame#telemetryContainer { background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 6px; } "
+            "QFrame#telemetryContainer QLabel { border: none; background: transparent; }"
         )
         layout = QVBoxLayout(container)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -589,24 +601,29 @@ class FocusCurveTab(QWidget):
             phase = active_rec.get("phase", "IN PROGRESS")
             if phase == "CONVERGED":
                 self._val_state.setText("● Converged (Focus Locked)")
-                self._val_state.setStyleSheet("font-size: 14px; font-weight: 700; color: #047857;")
+                self._val_state.setStyleSheet("border: none; background: transparent; font-size: 14px; font-weight: 700; color: #047857;")
                 self._sub_state.setText(f"Stage locked onto optimal focal plane Z={result.coarse_idx}")
+                self._sub_state.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
             elif phase == "OVERSHOOT":
                 self._val_state.setText("● Overshoot (Reverse & Refine)")
-                self._val_state.setStyleSheet("font-size: 14px; font-weight: 700; color: #dc2626;")
+                self._val_state.setStyleSheet("border: none; background: transparent; font-size: 14px; font-weight: 700; color: #dc2626;")
                 self._sub_state.setText("Score dropped -> Decaying step size")
+                self._sub_state.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
             elif phase == "FINE":
                 self._val_state.setText("● Fine Refinement")
-                self._val_state.setStyleSheet("font-size: 14px; font-weight: 700; color: #d97706;")
+                self._val_state.setStyleSheet("border: none; background: transparent; font-size: 14px; font-weight: 700; color: #d97706;")
                 self._sub_state.setText("Bracketing around peak")
+                self._sub_state.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
             else:
                 self._val_state.setText(f"● {phase.replace('_', ' ').title()}")
-                self._val_state.setStyleSheet("font-size: 14px; font-weight: 700; color: #0067c0;")
+                self._val_state.setStyleSheet("border: none; background: transparent; font-size: 14px; font-weight: 700; color: #0067c0;")
                 self._sub_state.setText("Climbing along ascending gradient")
+                self._sub_state.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
         else:
             self._val_state.setText("● Complete")
-            self._val_state.setStyleSheet("font-size: 14px; font-weight: 700; color: #047857;")
+            self._val_state.setStyleSheet("border: none; background: transparent; font-size: 14px; font-weight: 700; color: #047857;")
             self._sub_state.setText(f"Optimal peak Z={result.coarse_idx}")
+            self._sub_state.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
 
         # 2. SEM Captures Used Card
         total_global = truth.curve.size if truth else 199
@@ -614,9 +631,9 @@ class FocusCurveTab(QWidget):
         pct_saved = max(0.0, (1.0 - (captures_used / float(total_global))) * 100.0) if total_global > 0 else 0.0
         speedup = (total_global / float(captures_used)) if captures_used > 0 else 1.0
         self._val_scans.setText(f"{captures_used} / {total_global} frames")
-        self._val_scans.setStyleSheet("font-size: 15px; font-weight: 700; color: #0f172a;")
+        self._val_scans.setStyleSheet("border: none; background: transparent; font-size: 15px; font-weight: 700; color: #0f172a;")
         self._sub_scans.setText(f"{pct_saved:.1f}% frames saved ({speedup:.1f}× faster)")
-        self._sub_scans.setStyleSheet("font-size: 11px; color: #047857; font-weight: 600;")
+        self._sub_scans.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #047857; font-weight: 600;")
 
         # 3. Local Gradient Card
         if active_rec and abs(float(active_rec.get("gradient", 0.0))) > 1e-6:
@@ -624,24 +641,26 @@ class FocusCurveTab(QWidget):
             dz = active_rec.get("step_dz", 0)
             color = "#047857" if grad >= 0 else "#dc2626"
             self._val_grad.setText(f"{grad:+.4f}")
-            self._val_grad.setStyleSheet(f"font-size: 15px; font-weight: 700; color: {color};")
+            self._val_grad.setStyleSheet(f"border: none; background: transparent; font-size: 15px; font-weight: 700; color: {color};")
             self._sub_grad.setText(f"Step ΔZ = {dz:+d} planes")
+            self._sub_grad.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
         else:
             self._val_grad.setText("0.0000")
-            self._val_grad.setStyleSheet("font-size: 15px; font-weight: 700; color: #64748b;")
+            self._val_grad.setStyleSheet("border: none; background: transparent; font-size: 15px; font-weight: 700; color: #64748b;")
             self._sub_grad.setText("Step ΔZ = 0 planes")
+            self._sub_grad.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
 
         # 4. Best Peak Found Card
         true_max = truth.peak_idx if truth else result.coarse_idx
         dz_err = abs(result.coarse_idx - true_max)
         self._val_peak.setText(f"Z* = {result.coarse_idx} (True Max: {true_max})")
-        self._val_peak.setStyleSheet("font-size: 15px; font-weight: 700; color: #0067c0;")
+        self._val_peak.setStyleSheet("border: none; background: transparent; font-size: 15px; font-weight: 700; color: #0067c0;")
         if dz_err == 0:
             self._sub_peak.setText("Exact Global Peak Locked (ΔZ = 0)")
-            self._sub_peak.setStyleSheet("font-size: 11px; color: #047857; font-weight: 600;")
+            self._sub_peak.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #047857; font-weight: 600;")
         else:
             self._sub_peak.setText(f"Focal Error: ΔZ = {dz_err} planes")
-            self._sub_peak.setStyleSheet("font-size: 11px; color: #dc2626; font-weight: 600;")
+            self._sub_peak.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #dc2626; font-weight: 600;")
 
     def _populate_telemetry(self, history: List[Dict[str, Any]]) -> None:
         self._table.blockSignals(True)

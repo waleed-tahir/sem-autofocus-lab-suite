@@ -37,9 +37,10 @@ QDialog {{
 }}
 
 /* Ensure transparent backgrounds and no borders for labels, scroll widgets, and intermediate layouts */
-QLabel {{
+QLabel, QFrame QLabel {{
     background-color: transparent;
     border: none;
+    outline: none;
 }}
 
 QScrollArea {{
