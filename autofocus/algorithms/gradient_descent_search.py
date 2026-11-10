@@ -175,19 +175,36 @@ def gradient_descent_search(
     z_init, s_init = probe(z0, "INIT", "Initial stage position capture", dz_override=0)
     best_z, best_s = z_init, s_init
 
-    # 2. COARSE PROBE PHASE (Probe ΔZ = +2 to determine ascent direction)
-    probe_step = 2 if z0 + 2 <= max_idx else -2
-    z_probe, s_probe = probe(z0 + probe_step, "COARSE_PROBE", "Probe slope", dz_override=probe_step)
-    slope = (s_probe - s_init) / float(probe_step)
-    direction = 1 if slope >= 0 else -1
-    dir_str = "+Z" if direction > 0 else "-Z"
-    history[-1]["decision"] = f"Slope d(NV)/dZ = {slope:+.4f} -> Climb {dir_str}"
+    # 2. COARSE PROBE PHASE
+    # If starting at or near the boundary, the ascent direction is physically constrained
+    if z0 <= 2:
+        probe_step = 2
+        z_probe, s_probe = probe(z0 + probe_step, "COARSE_PROBE", "Probe slope", dz_override=probe_step)
+        direction = 1
+        slope = (s_probe - s_init) / float(probe_step)
+        history[-1]["decision"] = f"Stage at lower boundary Z={z0} -> Climb +Z"
+    elif z0 >= max_idx - 2:
+        probe_step = -2
+        z_probe, s_probe = probe(z0 + probe_step, "COARSE_PROBE", "Probe slope", dz_override=probe_step)
+        direction = -1
+        slope = (s_probe - s_init) / float(probe_step)
+        history[-1]["decision"] = f"Stage at upper boundary Z={z0} -> Climb -Z"
+    else:
+        probe_step = 2
+        z_probe, s_probe = probe(z0 + probe_step, "COARSE_PROBE", "Probe slope", dz_override=probe_step)
+        slope = (s_probe - s_init) / float(probe_step)
+        direction = 1 if slope >= 0 else -1
+        dir_str = "+Z" if direction > 0 else "-Z"
+        history[-1]["decision"] = f"Slope d(NV)/dZ = {slope:+.4f} -> Climb {dir_str}"
     
     if s_probe > best_s:
         best_z, best_s = z_probe, s_probe
     z_curr = z_probe
 
     # 3. COARSE ASCENT PHASE
+    coarse_steps_taken = 0
+    reversed_initial = False
+
     while True:
         step = coarse_step
         if adaptive and len(history) >= 2:
@@ -198,7 +215,13 @@ def gradient_descent_search(
         if not (0 <= next_z <= max_idx):
             next_z = max(0, min(max_idx, next_z))
             if next_z == z_curr:
-                break
+                if coarse_steps_taken == 0 and not reversed_initial:
+                    direction = -direction
+                    reversed_initial = True
+                    z_curr = z_init
+                    continue
+                else:
+                    break
 
         dz_val = next_z - z_curr
         z_eval, s_eval = probe(next_z, "COARSE", f"Coarse step ({dz_val:+d}) along ascending gradient", dz_override=dz_val)
@@ -206,8 +229,18 @@ def gradient_descent_search(
         if s_eval > best_s:
             best_z, best_s = z_eval, s_eval
             z_curr = z_eval
+            coarse_steps_taken += 1
         else:
-            # Overshot peak: score dropped
+            # Score did not improve: check if false direction from local noise at start
+            if coarse_steps_taken == 0 and not reversed_initial:
+                direction = -direction
+                reversed_initial = True
+                z_curr = z_init
+                history[-1]["phase"] = "COARSE_PROBE"
+                history[-1]["decision"] = f"Initial slope was noise dip (NV {s_eval:.3f} <= {best_s:.3f}) -> Reverse direction to {'+Z' if direction > 0 else '-Z'}"
+                continue
+
+            # Overshot peak after climbing
             history[-1]["phase"] = "OVERSHOOT"
             history[-1]["decision"] = f"Overshot peak! NV dropped ({s_eval:.3f} < {best_s:.3f}) -> Reverse & Refine"
             break
