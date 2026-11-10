@@ -1,18 +1,31 @@
-"""One module per tab of the main window.
+"""Workflow tabs of the application.
 
-In the order they appear:
-
-1.  :mod:`app.ui.tabs.datasets_tab`             -- load image sets, browse frames.
-2.  :mod:`app.ui.tabs.run_tab`                  -- choose and start the searches.
-3.  :mod:`app.ui.tabs.results_tab`              -- the required outputs.
-4.  :mod:`app.ui.tabs.focus_curve_tab`          -- focus curve and search path.
-5.  :mod:`app.ui.tabs.fine_fit_tab`             -- the quadratic fit, zoomed in.
-6.  :mod:`app.ui.tabs.algorithm_comparison_tab` -- cost against accuracy.
-7.  :mod:`app.ui.tabs.speed_comparison_tab`     -- the four scanning speeds.
-8.  :mod:`app.ui.tabs.measure_comparison_tab`   -- the five focus measures.
-9.  :mod:`app.ui.tabs.robustness_tab`           -- accuracy against injected noise.
-10. :mod:`app.ui.tabs.export_tab`               -- CSV, JSON, PNG and sessions.
-
-:mod:`app.ui.tabs.common` holds the pieces they share: the sortable table, the
-selector lists and the small info panel.
+Lab Submission Edition:
+1. :mod:`app.ui.tabs.datasets_tab` -- Load image stacks, browse frames and metadata.
+2. :mod:`app.ui.tabs.run_tab` -- Search algorithms & focus measure controls.
+3. :mod:`app.ui.tabs.results_tab` -- Sharpest frame output, metrics, and sortable runs table.
+4. :mod:`app.ui.tabs.run_results_tab` -- Unified Run & Results workspace.
+5. :mod:`app.ui.tabs.focus_curve_tab` -- Focus curve trajectory and step replay.
+6. :mod:`app.ui.tabs.algorithm_comparison_tab` -- Cost against accuracy (Global vs Gradient).
+7. :mod:`app.ui.tabs.export_tab` -- CSV, JSON, PNG exports and session persistence.
 """
+
+from __future__ import annotations
+
+from .datasets_tab import DatasetsTab
+from .run_tab import RunTab
+from .results_tab import ResultsTab
+from .run_results_tab import RunAndResultsTab
+from .focus_curve_tab import FocusCurveTab
+from .algorithm_comparison_tab import AlgorithmComparisonTab
+from .export_tab import ExportTab
+
+__all__ = [
+    "DatasetsTab",
+    "RunTab",
+    "ResultsTab",
+    "RunAndResultsTab",
+    "FocusCurveTab",
+    "AlgorithmComparisonTab",
+    "ExportTab",
+]

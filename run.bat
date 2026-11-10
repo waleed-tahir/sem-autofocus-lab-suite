@@ -4,6 +4,6 @@ cd /d "%~dp0"
 if exist ".venv\Scripts\python.exe" (
     .venv\Scripts\python.exe main.py %*
 ) else (
-    ..\Auto_focus_app\.venv\Scripts\python.exe main.py %*
+    python main.py %*
 )
 pause

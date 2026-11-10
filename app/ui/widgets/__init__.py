@@ -1,8 +1,16 @@
-"""Reusable widgets shared by the tabs.
+"""Reusable UI widgets for Autofocus Lab Suite."""
 
-* :mod:`app.ui.widgets.plot_canvas` -- an embedded matplotlib figure with the
-  navigation toolbar and a "Save PNG" button.
-* :mod:`app.ui.widgets.image_viewer` -- shows one frame, scaled to fit.
-* :mod:`app.ui.widgets.param_form`  -- builds an editor form from a parameter
-  specification.
-"""
+from __future__ import annotations
+
+from .image_viewer import ImageViewer, grayscale_to_pixmap
+from .modern_plot_widget import ModernAlgorithmBarChart
+from .param_form import ParamForm
+from .plot_canvas import PlotCanvas
+
+__all__ = [
+    "ImageViewer",
+    "grayscale_to_pixmap",
+    "ModernAlgorithmBarChart",
+    "ParamForm",
+    "PlotCanvas",
+]

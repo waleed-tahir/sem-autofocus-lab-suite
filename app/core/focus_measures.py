@@ -1,17 +1,11 @@
 """Registry of the focus measures offered in the GUI.
 
-Every entry points straight at a function of the read-only
-``autofocus.algorithms`` package; this module only gives them a stable key, a
-display name and a short explanation for the GUI.
+Every entry points straight at a function of the ``autofocus.algorithms`` package;
+this module gives them a stable key, a display name, and a short explanation for the GUI.
 
-Main contents:
-    * :class:`FocusMeasure` -- one registry entry.
-    * :data:`FOCUS_MEASURES` -- key -> entry, in the order shown in the GUI.
-    * :func:`resolve` -- look an entry up by key or by display name.
-
-The key is also the ``fmo_name`` string handed to the search algorithms, so a
-focus measure chosen in the GUI travels unchanged through a search and back
-into the evaluator.
+Lab Submission Edition:
+- Normalized Variance: Var(I) / Mean(I)
+- Mean-Normalized Variance: Var(I) / Mean(I)^2
 """
 
 from __future__ import annotations
@@ -23,17 +17,14 @@ from typing import Callable, Mapping, Optional
 import numpy as np
 
 from autofocus.algorithms import (
-    laplacian_of_gaussian,
     mean_normalized_variance,
-    modified_laplacian,
     normalized_variance,
-    variance_of_laplacian,
 )
 
 #: Signature every focus measure shares: one grayscale image in, one score out.
 MeasureFunc = Callable[[np.ndarray], float]
 
-#: The assignment asks for Normalized Variance, so it is the default everywhere.
+#: Normalized Variance is the primary measure.
 DEFAULT_MEASURE_KEY = "normalized_variance"
 
 
@@ -67,8 +58,6 @@ class FocusMeasure:
         return float(self.func(image))
 
 
-# The tuple order is the order of the combo box in the GUI; Normalized Variance
-# comes first because the assignment requires it as the default.
 _MEASURES: tuple[FocusMeasure, ...] = (
     FocusMeasure(
         key="normalized_variance",
@@ -76,8 +65,8 @@ _MEASURES: tuple[FocusMeasure, ...] = (
         func=normalized_variance,
         formula="Var(I) / Mean(I)",
         description=(
-            "Required by the assignment. Intensity spread divided by the mean "
-            "brightness, so a brighter frame does not score higher by itself."
+            "Intensity spread divided by mean brightness, so brighter frames "
+            "do not score higher by themselves."
         ),
     ),
     FocusMeasure(
@@ -86,38 +75,8 @@ _MEASURES: tuple[FocusMeasure, ...] = (
         func=mean_normalized_variance,
         formula="Var(I) / Mean(I)^2",
         description=(
-            "Divides by the squared mean, which makes the score invariant to a "
-            "global brightness change such as a beam-current drift."
-        ),
-    ),
-    FocusMeasure(
-        key="variance_of_laplacian",
-        display_name="Variance of Laplacian",
-        func=variance_of_laplacian,
-        formula="Var(Laplacian(I))",
-        description=(
-            "Variance of the second derivative. Very sharp peak, but it also "
-            "reacts strongly to electron shot noise."
-        ),
-    ),
-    FocusMeasure(
-        key="laplacian_of_gaussian",
-        display_name="Laplacian of Gaussian",
-        func=laplacian_of_gaussian,
-        formula="Var(Laplacian(Gauss(I)))",
-        description=(
-            "Smooths the frame before the second derivative, which suppresses "
-            "noise and keeps the peak usable at fast scanning speeds."
-        ),
-    ),
-    FocusMeasure(
-        key="modified_laplacian",
-        display_name="Modified Laplacian (SML)",
-        func=modified_laplacian,
-        formula="Mean((|Ixx| + |Iyy|)^2)",
-        description=(
-            "Adds the absolute second derivatives instead of their signed sum, "
-            "so curvature does not cancel out at saddle points."
+            "Divides by the squared mean, making the score invariant to global "
+            "brightness changes and beam current drift."
         ),
     ),
 )
@@ -134,19 +93,7 @@ def default_measure() -> FocusMeasure:
 
 
 def resolve(name: Optional[str]) -> Optional[FocusMeasure]:
-    """Look a focus measure up by key or by display name.
-
-    The search algorithms pass their ``fmo_name`` through unchanged, and one of
-    them even defaults to a name that has no implementation, so an unknown name
-    must be answered with ``None`` rather than an exception.  The evaluator then
-    falls back to the measure selected in the GUI.
-
-    Args:
-        name: Key, display name, or ``None``.
-
-    Returns:
-        The matching entry, or ``None`` when ``name`` is ``None`` or unknown.
-    """
+    """Look a focus measure up by key or by display name."""
     if not name:
         return None
     if name in FOCUS_MEASURES:
@@ -159,17 +106,7 @@ def resolve(name: Optional[str]) -> Optional[FocusMeasure]:
 
 
 def require(name: str) -> FocusMeasure:
-    """Look a focus measure up and fail loudly when it is unknown.
-
-    Args:
-        name: Key or display name.
-
-    Returns:
-        The matching entry.
-
-    Raises:
-        KeyError: If no entry matches ``name``.
-    """
+    """Look a focus measure up and fail loudly when it is unknown."""
     measure = resolve(name)
     if measure is None:
         known = ", ".join(FOCUS_MEASURES)

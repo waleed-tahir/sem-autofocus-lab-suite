@@ -1,7 +1,10 @@
-"""Native Main Window for Static Autofocusing Lab.
+"""Native Main Window for Static Autofocusing Lab (Lab Submission Edition).
 
-Features a streamlined 4-tab workflow, Fluent aesthetic,
-small-screen responsive layouts, and unified Run + Results.
+Features a streamlined 4-tab workflow:
+1. Datasets: image stack loading & inspection
+2. Run & Results: search controls, sharpest image, and runs table
+3. Focus Curve: full focal curve with probe replay
+4. Algorithm Comparison: Global Scan vs Gradient Search trade-offs
 """
 
 from __future__ import annotations
@@ -23,21 +26,20 @@ from PySide6.QtWidgets import (
 from app import APP_NAME, APP_VERSION
 from app.ui.app_state import AppState
 from app.ui.job_service import JobService
-from app.ui.tabs.comparative_analysis_tab import ComparativeAnalysisTab
+from app.ui.tabs.algorithm_comparison_tab import AlgorithmComparisonTab
 from app.ui.tabs.datasets_tab import DatasetsTab
 from app.ui.tabs.export_tab import ExportTab
-from app.ui.tabs.focus_curves_fit_tab import FocusCurvesAndFitTab
+from app.ui.tabs.focus_curve_tab import FocusCurveTab
 from app.ui.tabs.run_results_tab import RunAndResultsTab
 from app.ui.widgets.plot_canvas import PlotCanvas
 
 LOGGER = logging.getLogger(__name__)
 
-# Compact default size fitting 1280x768 and 1366x768 laptop displays
 DEFAULT_WINDOW_SIZE = (1240, 740)
 
 
 class MainWindow(QMainWindow):
-    """Native Main Window."""
+    """Native Main Window for Autofocus Lab Suite."""
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -55,9 +57,7 @@ class MainWindow(QMainWindow):
         self._setup_shortcuts()
         self._connect()
 
-        # Completely remove/hide the traditional 1990s desktop menu bar
         self.setMenuBar(None)
-
         self.setCentralWidget(self._tabs)
         self._update_status()
         self._maybe_load_default_datasets()
@@ -92,21 +92,21 @@ class MainWindow(QMainWindow):
         # Tab 2: Run & Results (unified execution + output)
         self.run_results_tab = RunAndResultsTab(self._state, self._jobs)
 
-        # Tab 3: Focus Curves & Fit (full curve probes + parabola zoom)
-        self.curves_fit_tab = FocusCurvesAndFitTab(self._state, self._jobs)
+        # Tab 3: Focus Curve (complete focal curve + step replay)
+        self.focus_curve_tab = FocusCurveTab(self._state, self._jobs)
 
-        # Tab 4: Comparative Analysis (Algos, Speeds, Measures, Robustness)
-        self.comparative_tab = ComparativeAnalysisTab(self._state, self._jobs)
+        # Tab 4: Algorithm Comparison (Global scan vs Gradient search trade-offs)
+        self.algo_comparison_tab = AlgorithmComparisonTab(self._state)
 
         # Export Tab instance to handle session & CSV export dialogs cleanly
         self.export_tab = ExportTab(self._state, self.all_canvases)
 
-        # Add 4 main tabs with clean titles (&& to escape ampersands in Qt) and descriptive tooltips
+        # Add 4 main tabs with clean titles and descriptive tooltips
         for widget, title, tooltip in (
             (self.datasets_tab, "Datasets", "Load image sets, calibrate geometry, and inspect frames."),
             (self.run_results_tab, "Run && Results", "Unified command center: choose algorithms, execute, and view sharpest image & table."),
-            (self.curves_fit_tab, "Curves && Fit", "Complete focus curve trajectories and zoomed sub-frame quadratic fit."),
-            (self.comparative_tab, "Comparative Analysis", "Multi-dimensional evaluation: algorithm trade-offs, scan speeds, and measures."),
+            (self.focus_curve_tab, "Focus Curve", "Focal curve trajectory and step-by-step search replay."),
+            (self.algo_comparison_tab, "Algorithm Comparison", "Performance, frame savings, and error comparison between Global Scan and Gradient Search."),
         ):
             idx = self._tabs.addTab(widget, title)
             self._tabs.setTabToolTip(idx, tooltip)
@@ -130,8 +130,8 @@ class MainWindow(QMainWindow):
         self.addAction(self._action("Cancel", self._jobs.cancel, "Esc"))
         self.addAction(self._action("Go to Datasets", lambda: self._tabs.setCurrentIndex(0), "Ctrl+1"))
         self.addAction(self._action("Go to Run & Results", lambda: self._tabs.setCurrentIndex(1), "Ctrl+2"))
-        self.addAction(self._action("Go to Curves & Fit", lambda: self._tabs.setCurrentIndex(2), "Ctrl+3"))
-        self.addAction(self._action("Go to Comparative Analysis", lambda: self._tabs.setCurrentIndex(3), "Ctrl+4"))
+        self.addAction(self._action("Go to Focus Curve", lambda: self._tabs.setCurrentIndex(2), "Ctrl+3"))
+        self.addAction(self._action("Go to Algorithm Comparison", lambda: self._tabs.setCurrentIndex(3), "Ctrl+4"))
         self.addAction(self._action("Quit", self.close, "Ctrl+Q"))
 
     def _action(self, text: str, slot, shortcut: str = "") -> QAction:
@@ -177,18 +177,15 @@ class MainWindow(QMainWindow):
         self._update_status()
 
     def all_canvases(self) -> list[tuple[str, PlotCanvas]]:
-        canvases: list[tuple[str, PlotCanvas]] = []
-        canvases.extend(self.curves_fit_tab.canvases)
-        canvases.extend(self.comparative_tab.canvases)
-        return canvases
+        return [("Focus Curve", self.focus_curve_tab._curve_canvas)]
 
     def _show_about(self) -> None:
         QMessageBox.about(
             self,
             f"About {APP_NAME}",
             f"<b>{APP_NAME} {APP_VERSION}</b><br>"
-            f"<i>Native Edition</i><br><br>"
-            f"Optimized for small screens (1366×768 / 1280×800) with unified Run & Results workflow.",
+            f"<i>Lab Submission Edition</i><br><br>"
+            f"Optimized for scanning electron microscopy autofocusing evaluation.",
         )
 
     def closeEvent(self, event: QCloseEvent) -> None:

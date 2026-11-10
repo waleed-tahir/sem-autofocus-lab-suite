@@ -1,9 +1,9 @@
-"""Tab 2: Run selection, options, and execution controls.
+"""Tab 2 (Left): Run selection, options, and execution controls.
 
-Organized into clean, full-width collapsible accordion cards:
-- Starts with all sections collapsed.
-- Exclusive accordion behavior: opening one automatically closes any other open section.
-- Fixed border styling across the entire column width.
+Lab Submission Edition:
+- Only 2 algorithms: Global Scan (exhaustive) and Gradient Search
+- Only 2 focus measures: Normalized Variance and Mean-Normalized Variance
+- Clean, open, organized layout without hidden collapsible accordions
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QProgressBar,
@@ -42,7 +43,6 @@ from app.ui.tabs.common import (
     set_all_checked,
     set_check_items,
 )
-from app.ui.widgets.collapsible_section import CollapsibleSection
 from app.ui.widgets.param_form import ParamForm
 
 LOGGER = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ def _button_row(left: QPushButton, right: QPushButton) -> QHBoxLayout:
 
 
 class RunTab(QWidget):
-    """Clean single-column form with exclusive single-open accordion sections."""
+    """Clean single-column form for selecting and launching autofocus runs."""
 
     results_ready = Signal()
 
@@ -86,8 +86,7 @@ class RunTab(QWidget):
         }
 
         self._dataset_combo = QComboBox()
-        self._algorithm_list = make_check_list(110)
-        self._sections: list[CollapsibleSection] = []
+        self._algorithm_list = make_check_list(65)
 
         self._build_widgets()
         self._build_layout()
@@ -110,7 +109,7 @@ class RunTab(QWidget):
         self._algorithm_hint.setWordWrap(True)
         self._algorithm_hint.setStyleSheet("color: #5e5e5e; font-size: 10.5px;")
 
-        self._apply_fit = QCheckBox("Apply quadratic parabola fit to all")
+        self._apply_fit = QCheckBox("Apply quadratic parabola fit")
         self._apply_fit.setChecked(True)
 
         self._half_window = QSpinBox()
@@ -134,104 +133,84 @@ class RunTab(QWidget):
         self._run_button = QPushButton("Start Search")
         self._run_button.setObjectName("primaryButton")
         self._run_button.setProperty("accent", True)
-        self._run_button.setFixedHeight(30)
+        self._run_button.setFixedHeight(32)
 
         self._cancel_button = QPushButton("Cancel")
-        self._cancel_button.setFixedHeight(30)
+        self._cancel_button.setFixedHeight(32)
         self._cancel_button.setEnabled(False)
 
         self._progress = QProgressBar()
-        self._progress.setFixedHeight(12)
+        self._progress.setFixedHeight(14)
         self._progress.setRange(0, 1)
         self._progress.setValue(0)
         self._progress.setFormat("Idle")
 
         self._all_algorithms_button = QPushButton("All")
+        self._all_algorithms_button.setFixedHeight(24)
         self._no_algorithms_button = QPushButton("None")
+        self._no_algorithms_button.setFixedHeight(24)
 
     def _build_layout(self) -> None:
-        """Arranges sections into a full-width exclusive accordion."""
+        """Arranges cleanly grouped cards with zero hidden accordions."""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(8)
 
-        # 1. Target Image Set (Single selection)
-        ds_content = QWidget()
-        ds_box = QVBoxLayout(ds_content)
-        ds_box.setContentsMargins(0, 0, 0, 0)
-        ds_box.setSpacing(4)
-        self._dataset_combo.setToolTip("Target image set to autofocus.")
-        ds_box.addWidget(self._dataset_combo)
-        self.sec_datasets = CollapsibleSection("Target Image Set", ds_content, initially_expanded=False)
+        # 1. Target Image Set
+        grp_ds = QGroupBox("Target Image Set")
+        box_ds = QVBoxLayout(grp_ds)
+        box_ds.setContentsMargins(8, 10, 8, 8)
+        box_ds.addWidget(self._dataset_combo)
+        layout.addWidget(grp_ds)
 
-        # 2. Search Algorithms
-        algo_content = QWidget()
-        algo_box = QVBoxLayout(algo_content)
-        algo_box.setContentsMargins(0, 0, 0, 0)
-        algo_box.setSpacing(4)
-        algo_box.addWidget(self._algorithm_list)
-        algo_box.addLayout(_button_row(self._all_algorithms_button, self._no_algorithms_button))
-        self.sec_algos = CollapsibleSection("Search Algorithms", algo_content, initially_expanded=False)
+        # 2. Search Algorithms (Global Scan & Gradient Search)
+        grp_algo = QGroupBox("Search Algorithms")
+        box_algo = QVBoxLayout(grp_algo)
+        box_algo.setContentsMargins(8, 10, 8, 8)
+        box_algo.setSpacing(4)
+        box_algo.addWidget(self._algorithm_list)
+        box_algo.addLayout(_button_row(self._all_algorithms_button, self._no_algorithms_button))
+        layout.addWidget(grp_algo)
 
-        # 3. Focus Measure
-        m_content = QWidget()
-        m_box = QVBoxLayout(m_content)
-        m_box.setContentsMargins(0, 0, 0, 0)
-        m_box.setSpacing(4)
-        m_box.addWidget(self._measure_combo)
-        m_box.addWidget(self._measure_hint)
-        self.sec_measure = CollapsibleSection("Focus Measure", m_content, initially_expanded=False)
+        # 3. Focus Measure (Normalized Variance & Mean-Normalized Variance)
+        grp_m = QGroupBox("Focus Measure")
+        box_m = QVBoxLayout(grp_m)
+        box_m.setContentsMargins(8, 10, 8, 8)
+        box_m.setSpacing(4)
+        box_m.addWidget(self._measure_combo)
+        box_m.addWidget(self._measure_hint)
+        layout.addWidget(grp_m)
 
         # 4. Parameters
-        p_content = QWidget()
-        p_box = QVBoxLayout(p_content)
-        p_box.setContentsMargins(0, 0, 0, 0)
-        p_box.setSpacing(4)
-        p_box.addWidget(self._param_target)
-        p_box.addWidget(self._algorithm_hint)
-        p_box.addWidget(self._param_form)
-        self.sec_params = CollapsibleSection("Algorithm Parameters", p_content, initially_expanded=False)
+        grp_p = QGroupBox("Algorithm Parameters")
+        box_p = QVBoxLayout(grp_p)
+        box_p.setContentsMargins(8, 10, 8, 8)
+        box_p.setSpacing(4)
+        box_p.addWidget(self._param_target)
+        box_p.addWidget(self._algorithm_hint)
+        box_p.addWidget(self._param_form)
+        layout.addWidget(grp_p)
 
-        # 5. Options
-        opt_content = QWidget()
-        opt_box = QVBoxLayout(opt_content)
-        opt_box.setContentsMargins(0, 0, 0, 0)
-        opt_box.setSpacing(4)
-        opt_box.addWidget(self._apply_fit)
-        opt_box.addLayout(_labelled_row("Fit half window:", self._half_window))
-        opt_box.addLayout(_labelled_row("Noise sigma (σ):", self._noise_sigma))
-        opt_box.addLayout(_labelled_row("Random seed:", self._seed))
-        opt_box.addLayout(_labelled_row("Repeats (mean):", self._repeats))
-        self.sec_options = CollapsibleSection("Execution Options", opt_content, initially_expanded=False)
+        # 5. Execution Options
+        grp_opt = QGroupBox("Execution Options")
+        box_opt = QVBoxLayout(grp_opt)
+        box_opt.setContentsMargins(8, 10, 8, 8)
+        box_opt.setSpacing(4)
+        box_opt.addWidget(self._apply_fit)
+        box_opt.addLayout(_labelled_row("Fit half window:", self._half_window))
+        box_opt.addLayout(_labelled_row("Noise sigma (σ):", self._noise_sigma))
+        box_opt.addLayout(_labelled_row("Random seed:", self._seed))
+        box_opt.addLayout(_labelled_row("Repeats (mean):", self._repeats))
+        layout.addWidget(grp_opt)
 
-        self._sections = [
-            self.sec_datasets,
-            self.sec_algos,
-            self.sec_measure,
-            self.sec_params,
-            self.sec_options,
-        ]
-
-        # Register mutual exclusion (only one expanded at a time)
-        for sec in self._sections:
-            layout.addWidget(sec)
-            sec.toggled.connect(self._make_exclusive_handler(sec))
-
-        # Bottom Action Bar (always visible)
+        # Action Buttons
         btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(6)
         btn_layout.addWidget(self._run_button, 2)
         btn_layout.addWidget(self._cancel_button, 1)
         layout.addLayout(btn_layout)
         layout.addWidget(self._progress)
         layout.addStretch(1)
-
-    def _make_exclusive_handler(self, active_sec: CollapsibleSection):
-        def handler(expanded: bool) -> None:
-            if expanded:
-                for other in self._sections:
-                    if other is not active_sec and other.is_expanded:
-                        other.set_expanded(False)
-        return handler
 
     def _connect(self) -> None:
         self._run_button.clicked.connect(self.start_run)

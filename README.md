@@ -1,36 +1,48 @@
-# Native Autofocus Desktop Application (Fluent Edition)
+# SEM Autofocus Lab Suite (Lab Submission Edition)
 
-A high-performance native desktop implementation of scanning electron microscopy (SEM) autofocusing algorithms with an edge-to-edge Fluent user interface.
+A high-performance desktop application for scanning electron microscopy (SEM) autofocusing evaluation with a clean, minimal user interface and organized code.
 
-## Overview
+## Key Features & Lab Workflow
 
-This application provides a completely redesigned, standalone desktop architecture for SEM focal-series acquisition and focus search optimization:
-- **4-Tab Unified Workflow**: `Datasets`, `Run & Results`, `Curves & Fit`, and `Comparative Analysis`.
-- **Hardware-Accelerated Visualizations**: Interactive PyQtGraph & Matplotlib plotting pipelines with real-time probe overlays.
-- **Smart Disk Caching**: On-disk persistent caching for precomputed ground truth curves and search runs.
-- **Robust Algorithms**: Comprehensive suite of focus measure operators (Normalized Variance, Variance of Laplacian, Laplacian of Gaussian, Modified Laplacian SML) and search algorithms (Global scan, Coarse-Fine Hybrid, Gradient search, Parabolic polynomial fitting).
+### 1. Minimal 4-Tab Interface
+- **Datasets**: Load SEM image stacks, calibrate geometry (working distances), and inspect individual frames.
+- **Run & Results**: Unified execution controls and output inspection. Select target datasets, algorithms, and focus measures; view the sharpest frame, numeric summaries, and sortable results table.
+- **Focus Curve**: Full focal curve trajectory visualization with interactive step-by-step replay controls (Play, Step, Slider, Reset).
+- **Algorithm Comparison**: Direct trade-off analysis comparing **Global Scan** vs **Gradient Search** with GPU-accelerated PyQtGraph charts, key performance metrics (KPIs), and exposure/beam-time savings matrix.
+
+### 2. Supported Focus Measures
+- **Normalized Variance**:
+  $$\text{Score} = \frac{\text{Var}(I)}{\text{Mean}(I) + \varepsilon}$$
+  Intensity spread normalized by mean brightness.
+- **Mean-Normalized Variance**:
+  $$\text{Score} = \frac{\text{Var}(I)}{\text{Mean}(I)^2 + \varepsilon}$$
+  Illumination-scale and beam-drift invariant formulation.
+
+### 3. Supported Search Algorithms
+- **Global Scan (exhaustive)**: Linear sweep across all focal planes $[0, \text{max\_idx}]$; serves as the ground-truth baseline.
+- **Gradient Search**: Sub-linear gradient ascent using adaptive centred finite differences and statistical noise verification against fake local maxima.
 
 ## Requirements
 
 - Python 3.10+
-- Windows 10 / Windows 11 (or compatible Linux/macOS desktop environments)
-
-Install runtime dependencies:
+- Dependencies:
 ```bash
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 ## Running the Application
 
-Execute via the included batch launcher or Python:
+Execute with the batch launcher or Python:
+```bash
+run.bat
+```
+or
 ```bash
 python main.py
 ```
 
-## Packaging Standalone Executable
+## Running Unit & Algorithm Tests
 
-To compile into a standalone Windows executable with all assets and runtime libraries:
 ```bash
-pyinstaller autofocus.spec --clean
+python autofocus/algorithms/test_extracted_algorithms.py
 ```
-The compiled output will be generated in `dist/Autofocus/Autofocus.exe`.
