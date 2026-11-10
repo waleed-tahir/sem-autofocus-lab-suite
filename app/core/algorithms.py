@@ -121,19 +121,15 @@ def _run_global_scan(ctx: RunContext) -> SearchOutcome:
 
 
 def _run_gradient(ctx: RunContext) -> SearchOutcome:
-    """Run the derivative-based gradient search with noise-floor verification."""
+    """Run the laboratory Coarse-to-Fine Gradient Ascent search."""
     stride = ctx.param_int("stride")
     result = gradient_descent_search(
         ctx.evaluator,
         max_idx=ctx.max_idx,
-        start_idx=ctx.optional_index("start_idx"),
-        alpha=ctx.param_float("alpha"),
-        delta=ctx.param_int("delta"),
-        max_iter=ctx.param_int("max_iter"),
-        verify_dist=ctx.param_int("verify_dist"),
-        verify_k=ctx.param_float("verify_k"),
-        max_restarts=ctx.param_int("max_restarts"),
-        verify_peaks=ctx.param_bool("verify_peaks"),
+        start_idx=ctx.optional_index("start_idx") if ctx.params.get("start_idx", 12) >= 0 else 12,
+        coarse_step=ctx.param_int("coarse_step"),
+        decay=ctx.param_float("decay"),
+        adaptive=ctx.param_bool("adaptive"),
         stride=stride,
         fmo_name=ctx.measure.key,
     )
@@ -153,35 +149,24 @@ _FIRST_FRAME = ParamSpec(
 )
 
 _START_IDX = ParamSpec(
-    "start_idx", "Start frame", "int", AUTO, minimum=AUTO, maximum=100_000, step=1,
-    tooltip="Where the gradient climb starts. -1 starts in the middle of the stack.",
+    "start_idx", "Initial Start Plane (Z_0)", "int", 12, minimum=0, maximum=100_000, step=1,
+    tooltip="Initial focal plane position Z_0.",
 )
 
-_ALPHA = ParamSpec(
-    "alpha", "Initial step alpha (frames)", "float", 24.0,
-    minimum=1.0, maximum=200.0, step=1.0, decimals=1,
-    tooltip="First step length of the climb. It is halved on every overshoot.",
+_COARSE_STEP = ParamSpec(
+    "coarse_step", "Coarse Step Size (ΔZ)", "int", 14, minimum=2, maximum=100, step=1,
+    tooltip="Coarse ascent step size along ascending gradient.",
 )
 
-_DELTA = ParamSpec(
-    "delta", "Min. derivative span delta", "int", 3, minimum=1, maximum=50, step=1,
-    tooltip="Smallest half span of the centred finite difference, in frames.",
+_DECAY = ParamSpec(
+    "decay", "Refinement Decay (α_decay)", "float", 0.50, minimum=0.1, maximum=0.9,
+    step=0.05, decimals=2,
+    tooltip="Step decay factor for fine refinement.",
 )
 
-_VERIFY_DIST = ParamSpec(
-    "verify_dist", "Verify probe distance", "int", 10, minimum=1, maximum=200, step=1,
-    tooltip="Distance to the probes that check the peak against the noise floor.",
-)
-
-_VERIFY_K = ParamSpec(
-    "verify_k", "Verify threshold k", "float", 3.0, minimum=0.0, maximum=20.0,
-    step=0.5, decimals=1,
-    tooltip="A peak counts as real when it stands k noise sigmas above the probes.",
-)
-
-_MAX_RESTARTS = ParamSpec(
-    "max_restarts", "Max restarts", "int", 8, minimum=0, maximum=50, step=1,
-    tooltip="How often the search may relocate to another basin after a failed check.",
+_ADAPTIVE = ParamSpec(
+    "adaptive", "Adaptive Gradient Step", "bool", False,
+    tooltip="Scales coarse step dynamically by local slope |d(NV)/dZ|.",
 )
 
 
@@ -220,20 +205,14 @@ _SPECS: tuple[AlgorithmSpec, ...] = (
         key="gradient",
         display_name="Gradient Search",
         description=(
-            "Climbs the focus curve using centred finite differences, halving "
-            "its step on every overshoot. Candidate peak is verified against the noise floor."
+            "Coarse-to-fine gradient ascent: probes initial slope, climbs along "
+            "ascending gradient, reverses on overshoot, and refines peak with decayed steps."
         ),
         params=(
             _START_IDX,
-            _ALPHA,
-            _DELTA,
-            ParamSpec("max_iter", "Max iterations", "int", 80, minimum=1, maximum=1000, step=10,
-                      tooltip="Upper bound on the steps of one climb."),
-            ParamSpec("verify_peaks", "Verify peak against noise", "bool", True,
-                      tooltip="Switch the fake-maximum rejection on or off."),
-            _VERIFY_DIST,
-            _VERIFY_K,
-            _MAX_RESTARTS,
+            _COARSE_STEP,
+            _DECAY,
+            _ADAPTIVE,
             _stride_param("stride", "Pixel stride", 1, "Subsampling of the frame. 1 is full resolution."),
         ),
         runner=_run_gradient,
@@ -417,7 +396,11 @@ def run_algorithm(spec: AlgorithmSpec, ctx: RunContext) -> RunResult:
         noise_sigma=ctx.noise_sigma,
         seed=ctx.seed,
         repeats=ctx.repeats,
-        extra={"params": dict(ctx.params), "fine_stride": outcome.fine_stride},
+        extra={
+            "params": dict(ctx.params),
+            "fine_stride": outcome.fine_stride,
+            "history": getattr(result, "history", []),
+        },
     )
 
 

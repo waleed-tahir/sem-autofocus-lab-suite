@@ -4,7 +4,7 @@ Validation Tests for Lab Submission Algorithms
 Verifies:
 1. normalized_variance.py (Normalized Variance & Mean-Normalized Variance)
 2. global_scan_search.py (Exhaustive focal range scan)
-3. gradient_descent_search.py (Gradient ascent & noise verification)
+3. gradient_descent_search.py (Coarse-to-fine gradient ascent & rich telemetry)
 4. quadratic_fit.py (Parabolic vertex interpolation)
 """
 
@@ -22,6 +22,7 @@ from autofocus.algorithms.gradient_descent_search import (
     gradient_descent_search,
     gradient_ascent_search,
     gradient_search,
+    coarse_to_fine_gradient_search,
 )
 from autofocus.algorithms.quadratic_fit import (
     quadratic_fit,
@@ -68,19 +69,49 @@ def test_global_scan_synthetic():
     print(f"  [PASS] Global Scan found peak {res.best_idx} reading {len(res.evals)} frames")
 
 
-def test_gradient_search_synthetic():
-    print("\n--- 3. Testing Gradient Descent / Ascent Search ---")
-    TRUE_PEAK = 45
-    TOTAL_FRAMES = 100
+def test_coarse_to_fine_gradient_search():
+    print("\n--- 3. Testing Coarse-to-Fine Gradient Ascent Search ---")
+    TRUE_PEAK = 97
+    TOTAL_FRAMES = 200
     MAX_IDX = TOTAL_FRAMES - 1
 
     def synthetic_eval(idx: int, stride: int = 1, fmo: str | None = None) -> float:
-        sigma = 8.0
-        return float(100.0 * np.exp(-((idx - TRUE_PEAK) ** 2) / (2 * sigma ** 2)))
+        # Realistic SEM focus curve shape
+        sigma = 16.0
+        peak_nv = 16.85
+        noise = 0.05 * np.sin(idx * 0.5)
+        return float(8.0 + (peak_nv - 8.0) * np.exp(-((idx - TRUE_PEAK) ** 2) / (2 * sigma ** 2)) + noise)
 
-    res = gradient_descent_search(synthetic_eval, max_idx=MAX_IDX, start_idx=10, alpha=16.0)
-    assert abs(res.best_idx - TRUE_PEAK) <= 1, f"Expected peak near {TRUE_PEAK}, got {res.best_idx}"
-    print(f"  [PASS] Gradient Search found peak {res.best_idx} in {len(res.evals)} frame evaluations")
+    res = gradient_descent_search(
+        synthetic_eval,
+        max_idx=MAX_IDX,
+        start_idx=12,
+        coarse_step=14,
+        decay=0.50,
+        adaptive=False,
+    )
+
+    # Unpackable as 3-tuple
+    best_idx, evals, history = res
+    assert abs(best_idx - TRUE_PEAK) <= 1, f"Expected peak near {TRUE_PEAK}, got {best_idx}"
+    assert len(evals) < 25, f"Expected < 25 evaluations, got {len(evals)}"
+
+    phases = [h["phase"] for h in history]
+    assert "INIT" in phases, "Missing INIT phase in telemetry"
+    assert "COARSE_PROBE" in phases, "Missing COARSE_PROBE phase in telemetry"
+    assert "COARSE" in phases, "Missing COARSE phase in telemetry"
+    assert "OVERSHOOT" in phases, "Missing OVERSHOOT phase in telemetry"
+    assert "FINE" in phases, "Missing FINE phase in telemetry"
+    assert "CONVERGED" in phases, "Missing CONVERGED phase in telemetry"
+
+    # Verify telemetry columns
+    for h in history:
+        for key in ("step", "phase", "z", "step_dz", "mean", "score", "gradient", "decision"):
+            assert key in h, f"Missing telemetry field '{key}' in record {h}"
+
+    savings_pct = (1.0 - len(evals) / float(TOTAL_FRAMES)) * 100.0
+    print(f"  [PASS] Coarse-to-Fine Gradient Search locked onto peak {best_idx} in {len(evals)} captures ({savings_pct:.1f}% fewer scans)")
+    print(f"  [PASS] Telemetry history contains all 6 phases: {set(phases)}")
 
 
 def test_quadratic_fit_synthetic():
@@ -100,6 +131,6 @@ if __name__ == "__main__":
     print("Running Lab Submission Algorithm Tests...\n")
     test_focus_scores_synthetic()
     test_global_scan_synthetic()
-    test_gradient_search_synthetic()
+    test_coarse_to_fine_gradient_search()
     test_quadratic_fit_synthetic()
     print("\n=== ALL TESTS PASSED SUCCESSFULLY ===")

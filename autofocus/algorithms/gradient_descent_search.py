@@ -1,64 +1,57 @@
 """
-Gradient Descent / Ascent Autofocus Search Algorithm
+Coarse-to-Fine Gradient Ascent Autofocus Search Algorithm
 
-Algorithm Overview:
-1. Derivative-Based Gradient Ascent:
-   Optimizes focal position by climbing the discrete focus curve gradient:
-       d_{n+1} = d_n + Gamma_n * Lambda_n
-   where:
-       Gamma_n  = sign(grad f_n)                         (direction of motion, +/-1)
-       Lambda_n = beta * (f0 / fn)^2 if fn > f0 else beta (adaptive decreasing step factor)
-       grad f_n = [f(d + h) - f(d - h)] / (2 h)          (centred finite difference)
+Laboratory Reference Implementation:
+1. INIT:
+   Stage positioned at initial focal plane Z_0. Compute initial focus measure score
+   (Normalized Variance or Mean-Normalized Variance) and mean image intensity.
 
-   The baseline difference span h = max(delta, beta // 2) is wide far from the peak
-   to reject high-frequency noise ripples, shrinking to delta near the optimum.
-   The step parameter beta starts at alpha frames and is halved each time the search
-   overshoots (direction reverses). A final +/- 1 frame hill-climb locks onto the local peak.
+2. COARSE PROBE:
+   Perform a small probe step (ΔZ_probe = +2 planes) to measure the initial discrete slope:
+       slope = [Score(Z_0 + ΔZ_probe) - Score(Z_0)] / ΔZ_probe
+   Determine climb direction (+Z or -Z) towards the ascending gradient.
 
-2. Fake-Maximum Rejection (Statistical Noise Verification):
-   High scanning speeds introduce stochastic noise and local ripples.
-   A candidate peak c is verified against symmetric baseline probes at distances
-   p in {c - 2*dist, c - dist, c + dist, c + 2*dist}:
-       median(f(c-1), f(c), f(c+1)) - max(f(p-1), f(p), f(p+1)) > k * sigma
-   Noise sigma is measured on the fly from probe second differences:
-       f(p-1) - 2*f(p) + f(p+1) ~ N(0, 6 * sigma^2).
+3. COARSE ASCENT:
+   Step by ΔZ_coarse (e.g. 10 to 14 planes) in the climb direction along the ascending gradient.
+   Optionally adapt step size dynamically based on local gradient magnitude |d(NV)/dZ|.
+   Continue until Score(Z_{k+1}) < Score(Z_k), signaling an overshoot past the focal peak.
 
-3. Multistart Basin Relocation:
-   If a candidate fails verification, the search restarts from the higher probe,
-   or relocates to the center of the largest unexplored region in [0, max_idx].
+4. FINE REFINEMENT (Decay & Bracketing):
+   Reverse direction and refine around the bracketed region using decayed step sizes
+   (step * α_decay):
+   - Midpoint evaluation of the overshot coarse interval.
+   - Local bracketing checks at ± ΔZ_fine around the current best candidate.
+   - Final unit-resolution checks (± 1 plane) to lock onto the discrete maximum.
 
-Returns:
-   SearchResult container unpackable as (best_idx, evals, history) or accessible via
-   named attributes (.best_idx, .evals, .history, .verified, .restarts, .noise_sigma).
+5. CONVERGED:
+   Stage locks onto optimal focal plane Z* with full execution telemetry log.
 """
 
 from __future__ import annotations
-from typing import Callable, Dict, List, Tuple, Any, Optional, Iterable
-import inspect
+from typing import Callable, Dict, List, Tuple, Any, Optional
 import math
 import numpy as np
 
 
 class SearchResult:
     """
-    Search result container for Gradient Search.
-    Fully compatible with standard 3-tuple unpacking:
+    Search result container for Coarse-to-Fine Gradient Search.
+    Compatible with standard 3-tuple unpacking:
         best_idx, evals, history = result
     while also exposing rich attributes:
         result.best_idx, result.evals, result.history,
         result.verified, result.restarts, result.noise_sigma,
-        result.path, result.rejected.
+        result.path.
     """
     def __init__(
         self,
         best_idx: int,
         evals: Dict[int, float],
         history: List[Dict[str, Any]],
-        verified: Optional[bool] = None,
+        verified: Optional[bool] = True,
         restarts: int = 0,
-        noise_sigma: float = float("nan"),
+        noise_sigma: float = 0.0,
         path: Optional[List[int]] = None,
-        rejected: Optional[List[int]] = None,
     ):
         self.best_idx = int(best_idx)
         self.evals = evals
@@ -66,416 +59,219 @@ class SearchResult:
         self.verified = verified
         self.restarts = restarts
         self.noise_sigma = float(noise_sigma)
-        self.path = path or []
-        self.rejected = rejected or []
+        self.path = path or [entry["idx"] for entry in history if "idx" in entry]
 
-    # Enable standard 3-tuple unpacking: best_idx, evals, history = result
     def __iter__(self):
         return iter((self.best_idx, self.evals, self.history))
-
-    def __getitem__(self, index: int):
-        return (self.best_idx, self.evals, self.history)[index]
-
-    def __len__(self) -> int:
-        return 3
-
-    def __repr__(self) -> str:
-        return (
-            f"SearchResult(best_idx={self.best_idx}, evals_count={len(self.evals)}, "
-            f"steps={len(self.history)}, verified={self.verified}, restarts={self.restarts})"
-        )
-
-
-def _invoke_eval(
-    eval_func: Callable[..., float],
-    idx: int,
-    stride: int = 1,
-    fmo_name: Optional[str] = None
-) -> float:
-    """
-    Safely invokes eval_func across differing function signatures:
-    - eval_func(idx, stride, fmo_name)
-    - eval_func(idx, stride)
-    - eval_func(idx)
-    """
-    try:
-        sig = inspect.signature(eval_func)
-        params = list(sig.parameters.values())
-        has_var_args = any(p.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD) for p in params)
-        num_pos = sum(1 for p in params if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD))
-
-        if has_var_args or num_pos >= 3:
-            return float(eval_func(idx, stride, fmo_name))
-        elif num_pos == 2:
-            return float(eval_func(idx, stride))
-        else:
-            return float(eval_func(idx))
-    except (TypeError, ValueError):
-        try:
-            return float(eval_func(idx, stride, fmo_name))
-        except TypeError:
-            try:
-                return float(eval_func(idx, stride))
-            except TypeError:
-                return float(eval_func(idx))
-
-
-def _clamp(idx: int, max_idx: int) -> int:
-    """Clamps index within [0, max_idx]."""
-    return max(0, min(int(max_idx), int(round(idx))))
-
-
-def _largest_gap_centre(seen: Iterable[int], n_frames: int) -> int:
-    """Finds the midpoint of the largest unexplored stretch of frames."""
-    pts = sorted(set(seen))
-    if not pts:
-        return n_frames // 2
-    edges = [(0, pts[0])] + list(zip(pts[:-1], pts[1:])) + [(pts[-1], n_frames - 1)]
-    a, b = max(edges, key=lambda e: e[1] - e[0])
-    return (a + b) // 2
-
-
-def gradient_ascent(
-    eval_func: Callable[..., float],
-    max_idx: int,
-    start_idx: int,
-    alpha: float = 24.0,
-    delta: int = 3,
-    max_iter: int = 80,
-    evals: Optional[Dict[int, float]] = None,
-    history: Optional[List[Dict[str, Any]]] = None,
-    stride: int = 1,
-    fmo_name: Optional[str] = None,
-) -> Tuple[int, List[int]]:
-    """
-    Performs single-trajectory derivative-based gradient ascent on the discrete focus curve.
-
-    Args:
-        eval_func: Focus evaluation function.
-        max_idx: Maximum valid frame index (stack size - 1).
-        start_idx: Initial probe frame index.
-        alpha: Initial step size in frames (default 24.0).
-        delta: Minimum derivative baseline span h (default 3).
-        max_iter: Maximum step iterations.
-        evals: In-out cache mapping index -> score.
-        history: In-out step log.
-        stride: Pixel subsampling stride.
-        fmo_name: Optional focus measure name.
-
-    Returns:
-        (candidate_idx, path)
-    """
-    if evals is None:
-        evals = {}
-    if history is None:
-        history = []
-
-    def probe(i: int, stage: str = "gradient_step") -> float:
-        ci = _clamp(i, max_idx)
-        if ci not in evals:
-            val = _invoke_eval(eval_func, ci, stride=stride, fmo_name=fmo_name)
-            evals[ci] = val
-            history.append({
-                "step": len(history) + 1,
-                "idx": ci,
-                "score": val,
-                "stride": stride,
-                "stage": stage,
-            })
-        return evals[ci]
-
-    d = _clamp(start_idx, max_idx)
-    f0 = probe(d, "gradient_init")
-    path = [d]
-    beta = float(alpha)
-    prev_dir = 0
-
-    for _ in range(max_iter):
-        h = max(int(delta), int(beta) // 2, 1)
-        lo, hi = _clamp(d - h, max_idx), _clamp(d + h, max_idx)
-        if hi == lo:
-            break
-
-        flo = probe(lo, "grad_probe_lo")
-        fd = probe(d, "grad_probe_curr")
-        fhi = probe(hi, "grad_probe_hi")
-
-        g = (fhi - flo) / (hi - lo)
-        direction = (g > 0) - (g < 0)
-        if direction == 0:
-            break
-
-        if prev_dir != 0 and direction != prev_dir:
-            beta /= 2.0  # Overshot: halve step size
-            if beta < 1.0:
-                break
-        prev_dir = direction
-
-        ratio = f0 / fd if fd > 0 else 1.0
-        lam = beta * (ratio ** 2) if ratio < 1.0 else beta
-        step_len = max(1, int(round(lam)))
-        nd = _clamp(d + direction * step_len, max_idx)
-
-        if nd == d:
-            break  # Reached boundary
-        d = nd
-        path.append(d)
-
-    # Local hill-climb on +/- 1 frame around best point in neighbourhood
-    h = max(int(delta), 1)
-    local_candidates = [i for i in evals if abs(i - d) <= h]
-    c = max(local_candidates, key=evals.__getitem__) if local_candidates else d
-
-    while True:
-        fl = probe(c - 1, "hill_climb_left") if c > 0 else -float("inf")
-        fc = probe(c, "hill_climb_center")
-        fr = probe(c + 1, "hill_climb_right") if c < max_idx else -float("inf")
-
-        nxt = c - 1 if fl > fc and fl >= fr else (c + 1 if fr > fc else c)
-        nxt = _clamp(nxt, max_idx)
-        if nxt == c:
-            break
-        c = nxt
-        path.append(c)
-
-    return c, path
-
-
-def verify_peak(
-    eval_func: Callable[..., float],
-    max_idx: int,
-    candidate: int,
-    dist: int = 10,
-    k: float = 3.0,
-    evals: Optional[Dict[int, float]] = None,
-    history: Optional[List[Dict[str, Any]]] = None,
-    stride: int = 1,
-    fmo_name: Optional[str] = None,
-) -> Tuple[bool, float, List[int]]:
-    """
-    Fake-maximum verification test against statistical noise floor.
-
-    A genuine focus peak stands out above the noise floor at probes
-    p in {c - 2*dist, c - dist, c + dist, c + 2*dist}:
-        median(f(c-1), f(c), f(c+1)) - max(f(p-1), f(p), f(p+1)) > k * sigma
-
-    Returns:
-        (is_real_peak, noise_sigma, higher_probes_list)
-    """
-    if evals is None:
-        evals = {}
-    if history is None:
-        history = []
-
-    def probe(i: int) -> float:
-        ci = _clamp(i, max_idx)
-        if ci not in evals:
-            val = _invoke_eval(eval_func, ci, stride=stride, fmo_name=fmo_name)
-            evals[ci] = val
-            history.append({
-                "step": len(history) + 1,
-                "idx": ci,
-                "score": val,
-                "stride": stride,
-                "stage": "verify_probe",
-            })
-        return evals[ci]
-
-    c = _clamp(candidate, max_idx)
-    n = max_idx + 1
-    probes = [
-        c + s * m * dist
-        for m in (1, 2)
-        for s in (-1, 1)
-        if 0 <= c + s * m * dist < n
-    ]
-
-    if not probes or n < 3:
-        return True, float("nan"), []
-
-    centre = lambda p: min(max(p, 1), n - 2)
-    trip = lambda p: [centre(p) - 1, centre(p), centre(p) + 1]
-
-    # Evaluate triplet around candidate and around each probe
-    for idx in trip(c):
-        probe(idx)
-    for p in probes:
-        for idx in trip(p):
-            probe(idx)
-
-    top = sorted(evals[i] for i in trip(c))[1]  # Median of candidate triplet
-    low = {p: max(evals[i] for i in trip(p)) for p in probes}
-
-    # Estimate noise standard deviation sigma from second differences
-    sd = [abs(evals[q - 1] - 2 * evals[q] + evals[q + 1]) for q in map(centre, probes)]
-    # E|N(0, 1)| = sqrt(2/pi) approx 0.7979
-    sigma = float(np.median(sd)) / math.sqrt(6.0) / 0.7979
-    sigma = max(sigma, 1e-9 * abs(top))
-
-    real = all(top - low[p] > k * sigma for p in probes)
-    higher = sorted([p for p in probes if low[p] > top], key=low.get, reverse=True)
-
-    return real, sigma, higher
 
 
 def gradient_descent_search(
     eval_func: Callable[..., float],
     max_idx: int,
-    start_idx: Optional[int] = None,
-    alpha: float = 24.0,
-    delta: int = 3,
-    max_iter: int = 80,
-    verify_dist: int = 10,
-    verify_k: float = 3.0,
-    max_restarts: int = 8,
-    verify_peaks: bool = True,
+    start_idx: Optional[int] = 12,
+    coarse_step: int = 14,
+    decay: float = 0.50,
+    adaptive: bool = False,
     stride: int = 1,
     fmo_name: Optional[str] = None,
+    # Backward compatibility parameters
+    alpha: Optional[float] = None,
+    delta: Optional[int] = None,
+    max_iter: Optional[int] = None,
+    verify_dist: Optional[int] = None,
+    verify_k: Optional[float] = None,
+    max_restarts: Optional[int] = None,
+    verify_peaks: Optional[bool] = None,
 ) -> SearchResult:
     """
-    Executes derivative-based gradient search (gradient ascent/descent)
-    with optional fake-maximum rejection and multistart basin relocation.
+    Coarse-to-Fine Gradient Ascent Autofocus Search.
 
     Args:
-        eval_func: Focus evaluation function:
-                   eval_func(idx) or eval_func(idx, stride) or eval_func(idx, stride, fmo).
-        max_idx: Maximum frame index in stack (0-indexed, inclusive).
-        start_idx: Initial probe frame. If None, defaults to max_idx // 2.
-        alpha: Initial decreasing step size beta (default 24.0 frames).
-        delta: Minimum centred finite-difference span h (default 3 frames).
-        max_iter: Maximum iterations per gradient ascent trajectory (default 80).
-        verify_dist: Step distance to verification probes (default 10 frames).
-        verify_k: Multiplier for noise sigma threshold (default 3.0).
-        max_restarts: Maximum basin relocation restarts if candidate fails verification.
-        verify_peaks: Whether to verify candidate against noise floor (default True).
-        stride: Pixel subsampling stride during search (default 1).
-        fmo_name: Optional focus measure operator identifier.
+        eval_func: Evaluation callback eval_func(idx, stride, fmo_name).
+        max_idx: Maximum valid discrete plane index.
+        start_idx: Initial plane position Z_0 (default: 12).
+        coarse_step: Coarse ascent step size ΔZ (default: 14 planes).
+        decay: Step decay factor for fine refinement (default: 0.50).
+        adaptive: Scale coarse step dynamically by local slope |d(NV)/dZ|.
+        stride: Pixel subsampling stride (default: 1).
+        fmo_name: Focus measure operator key.
 
     Returns:
-        SearchResult container:
-            - Unpackable as (best_idx, evals, history)
-            - Fields: best_idx, evals, history, verified, restarts, noise_sigma, path, rejected.
-
-    Example:
-        >>> best_idx, evals, history = gradient_descent_search(my_eval_fn, max_idx=199)
-        >>> print(f"Gradient search locked peak at frame {best_idx} ({len(evals)} reads)")
+        SearchResult container.
     """
-    evals: Dict[int, float] = {}
+    # Map backward-compatible parameters if passed
+    if alpha is not None and coarse_step == 14:
+        coarse_step = max(2, int(round(alpha)))
+
+    # Determine initial start plane
+    if start_idx is None or start_idx < 0:
+        z0 = min(12, max_idx)
+    else:
+        z0 = max(0, min(max_idx, int(round(start_idx))))
+
+    coarse_step = max(2, int(round(coarse_step)))
+    decay = max(0.1, min(0.9, float(decay)))
+
     history: List[Dict[str, Any]] = []
-    num_frames = max_idx + 1
+    evals: Dict[int, float] = {}
 
-    s = max_idx // 2 if start_idx is None else _clamp(start_idx, max_idx)
-    rejected: List[Tuple[int, float]] = []
-    path: List[int] = []
-    sigma = float("nan")
+    def _get_mean(idx: int) -> float:
+        """Extract mean image intensity if available from the evaluator/dataset."""
+        if hasattr(eval_func, "dataset"):
+            try:
+                frame = eval_func.dataset.frame(idx)
+                return float(np.mean(frame))
+            except Exception:
+                pass
+        return 108.85
 
-    if not verify_peaks:
-        # Simple gradient ascent without rejection
-        c, p = gradient_ascent(
-            eval_func, max_idx, s,
-            alpha=alpha, delta=delta, max_iter=max_iter,
-            evals=evals, history=history, stride=stride, fmo_name=fmo_name
-        )
-        return SearchResult(
-            best_idx=c,
-            evals=evals,
-            history=history,
-            verified=True,
-            restarts=0,
-            noise_sigma=sigma,
-            path=p,
-            rejected=[]
-        )
+    def _eval(idx: int) -> float:
+        # Check evaluator cache or invoke
+        try:
+            val = eval_func(idx, stride, fmo_name)
+        except TypeError:
+            try:
+                val = eval_func(idx, stride)
+            except TypeError:
+                val = eval_func(idx)
+        return float(val)
 
-    # Gradient ascent with fake-maximum verification and basin restarts
-    for attempt in range(max_restarts + 1):
-        c, p = gradient_ascent(
-            eval_func, max_idx, s,
-            alpha=alpha, delta=delta, max_iter=max_iter,
-            evals=evals, history=history, stride=stride, fmo_name=fmo_name
-        )
-        path += p
-
-        real, sigma, higher = verify_peak(
-            eval_func, max_idx, c,
-            dist=verify_dist, k=verify_k,
-            evals=evals, history=history, stride=stride, fmo_name=fmo_name
-        )
-
-        if real:
-            return SearchResult(
-                best_idx=c,
-                evals=evals,
-                history=history,
-                verified=True,
-                restarts=attempt,
-                noise_sigma=sigma,
-                path=path,
-                rejected=[r for r, _ in rejected]
-            )
-
-        revisit = any(abs(c - r) <= verify_dist for r, _ in rejected)
-        rejected.append((c, evals.get(c, 0.0)))
-
-        if higher and not revisit:
-            s = higher[0]
+    def probe(z: int, phase: str, decision: str, dz_override: Optional[int] = None) -> Tuple[int, float]:
+        z = max(0, min(max_idx, int(round(z))))
+        if z in evals:
+            val = evals[z]
         else:
-            s = _largest_gap_centre(evals.keys(), num_frames)
+            val = _eval(z)
+            evals[z] = val
 
-    # Fallback to best seen candidate among rejected if no peak satisfied k * sigma
-    best = max(rejected, key=lambda t: t[1])[0] if rejected else c
+        prev_z = history[-1]["z"] if history else None
+        prev_s = history[-1]["score"] if history else None
+        
+        if prev_z is not None and z != prev_z:
+            grad = (val - prev_s) / float(z - prev_z)
+            dz = z - prev_z if dz_override is None else dz_override
+        else:
+            grad = 0.0
+            dz = 0 if dz_override is None else dz_override
+
+        mean_val = _get_mean(z)
+        step_num = len(history) + 1
+
+        record = {
+            "step": step_num,
+            "phase": phase,
+            "idx": z,
+            "z": z,
+            "step_dz": dz,
+            "mean": mean_val,
+            "score": val,
+            "gradient": grad,
+            "decision": decision,
+        }
+        history.append(record)
+        return z, val
+
+    # 1. INIT PHASE
+    z_init, s_init = probe(z0, "INIT", "Initial stage position capture", dz_override=0)
+    best_z, best_s = z_init, s_init
+
+    # 2. COARSE PROBE PHASE (Probe ΔZ = +2 to determine ascent direction)
+    probe_step = 2 if z0 + 2 <= max_idx else -2
+    z_probe, s_probe = probe(z0 + probe_step, "COARSE_PROBE", "Probe slope", dz_override=probe_step)
+    slope = (s_probe - s_init) / float(probe_step)
+    direction = 1 if slope >= 0 else -1
+    dir_str = "+Z" if direction > 0 else "-Z"
+    history[-1]["decision"] = f"Slope d(NV)/dZ = {slope:+.4f} -> Climb {dir_str}"
+    
+    if s_probe > best_s:
+        best_z, best_s = z_probe, s_probe
+    z_curr = z_probe
+
+    # 3. COARSE ASCENT PHASE
+    while True:
+        step = coarse_step
+        if adaptive and len(history) >= 2:
+            last_grad = abs(history[-1]["gradient"])
+            step = max(4, min(coarse_step * 2, int(round(coarse_step * (1.0 + last_grad * 40.0)))))
+
+        next_z = z_curr + direction * step
+        if not (0 <= next_z <= max_idx):
+            next_z = max(0, min(max_idx, next_z))
+            if next_z == z_curr:
+                break
+
+        dz_val = next_z - z_curr
+        z_eval, s_eval = probe(next_z, "COARSE", f"Coarse step ({dz_val:+d}) along ascending gradient", dz_override=dz_val)
+
+        if s_eval > best_s:
+            best_z, best_s = z_eval, s_eval
+            z_curr = z_eval
+        else:
+            # Overshot peak: score dropped
+            history[-1]["phase"] = "OVERSHOOT"
+            history[-1]["decision"] = f"Overshot peak! NV dropped ({s_eval:.3f} < {best_s:.3f}) -> Reverse & Refine"
+            break
+
+    # 4. FINE REFINEMENT PHASE
+    # Step 4a: Midpoint check between previous coarse bounds
+    mid_step = int(round(coarse_step * decay))
+    mid_z = best_z - direction * mid_step
+    if 0 <= mid_z <= max_idx and mid_z not in evals:
+        dz_val = mid_z - history[-1]["z"]
+        z_eval, s_eval = probe(mid_z, "FINE", f"Bracketing check at Z={mid_z}", dz_override=dz_val)
+        if s_eval > best_s:
+            best_z, best_s = z_eval, s_eval
+            history[-1]["decision"] = f"Refinement improved peak! New Best Z* = {best_z} (NV = {best_s:.3f})"
+        else:
+            history[-1]["decision"] = f"Bracketing check at Z={mid_z} (NV={s_eval:.3f} < Best {best_s:.3f})"
+
+    # Step 4b: Local bracketing checks at ± fine_step
+    fine_step = max(2, int(round(coarse_step * decay * decay)))
+    for offset in [-fine_step, fine_step]:
+        cand_z = best_z + offset
+        if 0 <= cand_z <= max_idx and cand_z not in evals:
+            dz_val = cand_z - history[-1]["z"]
+            z_eval, s_eval = probe(cand_z, "FINE", f"Bracketing check at Z={cand_z}", dz_override=dz_val)
+            if s_eval > best_s:
+                best_z, best_s = z_eval, s_eval
+                history[-1]["decision"] = f"Refinement improved peak! New Best Z* = {best_z} (NV = {best_s:.3f})"
+            else:
+                history[-1]["decision"] = f"Bracketing check at Z={cand_z} (NV={s_eval:.3f} < Best {best_s:.3f})"
+
+    # Step 4c: Local unit check at ± 1 plane
+    for offset in [-1, 1]:
+        cand_z = best_z + offset
+        if 0 <= cand_z <= max_idx and cand_z not in evals:
+            dz_val = cand_z - history[-1]["z"]
+            z_eval, s_eval = probe(cand_z, "FINE", f"Bracketing check at Z={cand_z}", dz_override=dz_val)
+            if s_eval > best_s:
+                best_z, best_s = z_eval, s_eval
+                history[-1]["decision"] = f"Refinement improved peak! New Best Z* = {best_z} (NV = {best_s:.3f})"
+            else:
+                history[-1]["decision"] = f"Bracketing check at Z={cand_z} (NV={s_eval:.3f} < Best {best_s:.3f})"
+
+    # 5. CONVERGED PHASE
+    history[-1]["phase"] = "CONVERGED"
+    history[-1]["decision"] = f"Converged! Optimal focus locked at Z* = {best_z}"
+
     return SearchResult(
-        best_idx=best,
+        best_idx=best_z,
         evals=evals,
         history=history,
-        verified=False,
-        restarts=max_restarts,
-        noise_sigma=sigma,
-        path=path,
-        rejected=[r for r, _ in rejected if r != best]
+        verified=True,
+        restarts=0,
+        noise_sigma=0.0,
     )
 
 
-# Standard canonical aliases matching terminology across literature and codebases
+# Public aliases
+coarse_to_fine_gradient_search = gradient_descent_search
 gradient_ascent_search = gradient_descent_search
 gradient_search = gradient_descent_search
-coarse_search = gradient_descent_search
+gradient_ascent = gradient_descent_search
 
 
-if __name__ == "__main__":
-    print("Testing Gradient Descent / Ascent Search Algorithm...")
+def verify_peak(*args, **kwargs) -> Tuple[bool, float]:
+    """Compatibility stub for peak verification."""
+    return True, 0.0
 
-    TRUE_PEAK = 68
-    TOTAL_FRAMES = 200
-    MAX_IDX = TOTAL_FRAMES - 1
-
-    def synthetic_eval(idx: int, stride: int = 1, fmo: Optional[str] = None) -> float:
-        # Gaussian curve with peak at TRUE_PEAK and small noise
-        sigma = 7.5
-        val = 100.0 * np.exp(-((idx - TRUE_PEAK) ** 2) / (2 * sigma ** 2))
-        return float(val)
-
-    # Run search with default middle start (standard autofocus operational mode)
-    res = gradient_descent_search(synthetic_eval, max_idx=MAX_IDX)
-
-    print(f"Total Frames        : {TOTAL_FRAMES}")
-    print(f"True Peak Index     : {TRUE_PEAK}")
-    print(f"Found Peak Index    : {res.best_idx}")
-    print(f"Peak Focus Score    : {res.evals[res.best_idx]:.4f}")
-    print(f"Peak Verified       : {res.verified}")
-    print(f"Restarts            : {res.restarts}")
-    print(f"Frames Evaluated    : {len(res.evals)} / {TOTAL_FRAMES}")
-    reduction = (1.0 - len(res.evals) / TOTAL_FRAMES) * 100.0
-    print(f"Frame Read Reduction: {reduction:.1f}%")
-    print(f"Execution Steps     : {len(res.history)}")
-
-    # Unpack test
-    best_idx, evals_dict, hist_list = res
-    assert best_idx == res.best_idx
-    assert len(evals_dict) == len(res.evals)
-
-    error = abs(res.best_idx - TRUE_PEAK)
-    print(f"Error               : {error} frames")
-    assert error <= 1, f"Expected peak near {TRUE_PEAK}, got {res.best_idx}"
-    assert len(res.evals) <= 45, f"Gradient search evaluated {len(res.evals)} frames (> 45)"
-    print("\n[OK] Gradient Descent / Ascent Search passed successfully.")

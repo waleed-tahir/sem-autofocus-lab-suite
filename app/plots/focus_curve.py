@@ -1,40 +1,44 @@
-"""Plot A: the full focus curve with the frames a search actually visited.
+"""Plot A: Focus curve and Coarse-to-Fine Gradient Ascent trajectory.
 
-Redesigned with high readability and modern visual hierarchy:
-- Legend moved outside the plot area or below to stop burying data curves.
-- Multi-algorithm markers drawn with clean distinct styling and no messy clutter.
-- Axis numbers formatted with standard SI / metric notation.
-- Crisp Segoe UI typography and elegant Fluent styling.
+Renders:
+1. Global Reference Focus Curve (exhaustive sweep ground truth)
+2. Phase 1: Coarse Step trajectory (cyan line and circular markers #1, #2, ...)
+3. Phase 2: Fine Refinement trajectory (amber/orange line and markers)
+4. Overshoot detection marker (vivid red)
+5. Local tangent line d(NV)/dZ at the active inspection step
+6. Global Peak marker and annotation
+7. Active probe halo indicator
 """
 
 from __future__ import annotations
 
 import math
-from typing import Sequence
+from typing import Optional, Sequence, Any, Dict, List
 
 import numpy as np
 from matplotlib.figure import Figure
+from matplotlib.lines import Line2D
 
 from app.core.experiment import GroundTruth
 from app.core.run_result import RunResult
 from app.plots.style import (
     INK_PRIMARY,
     INK_SECONDARY,
-    MARKER_EDGE_WIDTH,
-    PEAK_MARKER_SIZE,
-    REFERENCE,
-    REFERENCE_LINE_WIDTH,
     SURFACE,
-    algorithm_style,
     empty_message,
     finish_figure,
     frame_index_axis,
     style_axes,
 )
 
-FINE_LINE_ALPHA = 0.95
-VISIT_ALPHA = 0.88
-DENSE_RUN_FRAMES = 50
+# Color tokens strictly aligned with lab reference HUD
+COLOR_SWEEP = "#64748b"        # Slate grey for global sweep
+COLOR_COARSE = "#00b4d8"       # Cyan for Phase 1: Coarse Step
+COLOR_FINE = "#f59e0b"         # Amber/orange for Phase 2: Fine Refinement
+COLOR_OVERSHOOT = "#ef233c"    # Vivid red for Overshoot
+COLOR_TANGENT = "#ef233c"      # Red dashed tangent line
+COLOR_PEAK = "#10b981"         # Emerald green for Global Peak
+COLOR_HALO = "#0284c7"         # Active probe highlight
 
 
 def draw_focus_curve(
@@ -42,7 +46,9 @@ def draw_focus_curve(
     truth: Optional[GroundTruth],
     results: Sequence[RunResult] = (),
     replay_step: Optional[int] = None,
+    show_global: bool = True,
 ) -> None:
+    """Draw the focus curve with visited search probes and coarse-to-fine trajectory."""
     figure.clear()
     if truth is None:
         empty_message(
@@ -53,124 +59,215 @@ def draw_focus_curve(
 
     ax = figure.add_subplot(111)
     wd_mm = truth.wd_mm
+    curve = truth.curve
+    num_frames = len(curve)
+    indices = np.arange(num_frames)
 
-    # 1. Subtle, clean reference curve underneath
-    ax.plot(
-        wd_mm, truth.curve,
-        color="#8c8c8c", linewidth=2.0, zorder=2,
-        label=f"Reference curve ({truth.measure_name})",
-    )
-    # Peak marker
-    ax.plot(
-        [truth.peak_wd_mm], [truth.peak_value],
-        marker="*", markersize=16.0, color="#d83b01",
-        markeredgecolor="#ffffff", markeredgewidth=1.5,
-        linestyle="none", zorder=5, label=f"True peak: frame {truth.peak_idx} ({truth.peak_wd_mm:.4f} mm)",
-    )
+    # 1. Global sweep curve
+    if show_global:
+        ax.plot(
+            indices, curve,
+            color=COLOR_SWEEP, linewidth=1.8, alpha=0.55, zorder=2,
+            label="Show Global Sweep Curve",
+        )
 
-    # 2. Visited algorithm paths
+    # 2. Ground-truth Global Peak marker
+    peak_idx = truth.peak_idx
+    if 0 <= peak_idx < num_frames:
+        peak_val = curve[peak_idx]
+        ax.plot(
+            [peak_idx], [peak_val],
+            marker="o", markersize=9.0, color=COLOR_PEAK,
+            markeredgecolor="#ffffff", markeredgewidth=1.8,
+            linestyle="none", zorder=6,
+            label=f"Global Peak Z={peak_idx}",
+        )
+        ax.annotate(
+            f"Global Peak Z={peak_idx}",
+            xy=(peak_idx, peak_val),
+            xytext=(peak_idx, peak_val + (np.ptp(curve) * 0.05 if np.ptp(curve) > 0 else 0.5)),
+            ha="center", va="bottom",
+            fontsize=8.5, fontweight="bold", color=COLOR_PEAK,
+            zorder=7,
+        )
+
+    # 3. Visited trajectories
     for result in results:
-        _draw_run(ax, truth, result, replay_step=replay_step)
+        _draw_result_trajectory(ax, truth, result, replay_step=replay_step)
 
-    # Style axes
-    style_axes(
-        ax,
-        title=f"Focus Curve & Visited Search Probes — {truth.dataset_label}",
-        xlabel="Working distance (mm)",
-        ylabel="Focus score",
-        legend=False,
+    # 4. Axes and titles styling
+    measure_name = truth.measure_name if truth else "Normalized Variance"
+    ax.set_title(
+        f"{measure_name} Focus Curve & Coarse-to-Fine Gradient Trajectory",
+        fontsize=11.5, fontweight="bold", color=INK_PRIMARY, pad=10,
     )
-    frame_index_axis(ax, wd_mm)
+    ax.set_xlabel("Focal Plane Z (Index)", fontsize=9.5, color=INK_SECONDARY, labelpad=6)
+    ylabel = "Normalized Variance NV (σ²/µ)" if "norm" in measure_name.lower() else "Focus Score"
+    ax.set_ylabel(ylabel, fontsize=9.5, color=INK_SECONDARY, labelpad=6)
 
-    # Clean multi-column legend positioned underneath or outside to stop overlapping curves
+    # Custom ticks to show Z indices clearly
+    if num_frames > 0:
+        step_ticks = max(10, num_frames // 10)
+        tick_locs = list(range(0, num_frames, step_ticks))
+        if (num_frames - 1) not in tick_locs:
+            tick_locs.append(num_frames - 1)
+        ax.set_xticks(tick_locs)
+        ax.set_xticklabels([f"Z={t}" for t in tick_locs], fontsize=8.0, color=INK_SECONDARY)
+
+    ax.grid(True, linestyle="--", alpha=0.35, color="#cbd5e1", zorder=1)
+    for spine in ax.spines.values():
+        spine.set_color("#cbd5e1")
+        spine.set_linewidth(0.8)
+
+    # Clean legend above or below
     handles, labels = ax.get_legend_handles_labels()
-    if handles:
+    # Filter duplicate labels
+    by_label = dict(zip(labels, handles))
+    if by_label:
         ax.legend(
-            handles, labels,
+            by_label.values(), by_label.keys(),
             loc="upper center",
-            bbox_to_anchor=(0.5, -0.16),
-            ncol=min(3, len(handles)),
+            bbox_to_anchor=(0.5, -0.14),
+            ncol=min(5, len(by_label)),
             frameon=True,
             facecolor="#ffffff",
-            edgecolor="#e5e5e5",
+            edgecolor="#e2e8f0",
             fontsize=8.5,
         )
 
-    # Adaptive, highly readable Y-axis formatting to avoid identical duplicate numbers
+    # Y-axis formatter
     y_min, y_max = ax.get_ylim()
-    y_range = abs(y_max - y_min)
-    if y_range < 5:
+    y_span = abs(y_max - y_min)
+    if y_span < 5:
         ax.yaxis.set_major_formatter(lambda x, pos: f"{x:.2f}")
-    elif y_range < 50:
+    elif y_span < 50:
         ax.yaxis.set_major_formatter(lambda x, pos: f"{x:.1f}")
-    elif abs(y_max) >= 1000:
-        ax.yaxis.set_major_formatter(lambda x, pos: f"{x/1000:.1f}k")
     else:
         ax.yaxis.set_major_formatter(lambda x, pos: f"{x:.0f}")
 
     finish_figure(figure)
 
 
-def _draw_run(
+def _draw_result_trajectory(
     ax,
     truth: GroundTruth,
     result: RunResult,
     replay_step: Optional[int] = None,
 ) -> None:
-    style = algorithm_style(result.algorithm_key)
-    wd_mm = truth.wd_mm
-    last = truth.curve.size - 1
+    """Render the step-by-step coarse-to-fine trajectory."""
+    history: List[Dict[str, Any]] = result.extra.get("history", [])
+    curve = truth.curve
+    num_frames = len(curve)
 
-    visited_seq = [idx for idx in result.visited if 0 <= idx <= last]
-    if replay_step is not None:
-        visited_seq = visited_seq[:max(0, replay_step)]
-
-    if visited_seq:
-        visited = sorted(set(visited_seq))
-        # If exhaustive or dense scan (> 80 frames), show as an elegant continuous search trace line
-        if len(visited) >= 80 and replay_step is None:
+    # Fallback to standard visited indices if no history
+    if not history:
+        visited = [idx for idx in result.visited if 0 <= idx < num_frames]
+        if replay_step is not None:
+            visited = visited[:max(0, replay_step)]
+        if visited:
             ax.plot(
-                wd_mm[visited], truth.curve[visited],
-                linestyle="-", linewidth=1.5,
-                color=style.color, alpha=0.65, zorder=3,
-                label=f"{result.algorithm} ({len(visited)} probes)",
+                visited, [curve[i] for i in visited],
+                color=COLOR_COARSE, marker="o", markersize=6,
+                linewidth=1.8, label=f"{result.algorithm} ({len(visited)} probes)",
+                zorder=4,
             )
-        else:
-            # Heuristic searches or animated replay: show distinct discrete probe markers
-            ax.plot(
-                wd_mm[visited], truth.curve[visited],
-                linestyle="none", marker=style.marker,
-                markersize=6.5,
-                color=style.color, markeredgecolor="#ffffff",
-                markeredgewidth=1.2, alpha=VISIT_ALPHA, zorder=4,
-                label=f"{result.algorithm} ({len(visited_seq)}/{len(result.visited)} probes)",
-            )
+        return
 
-        # Highlight current probe in replay mode
-        if replay_step is not None and visited_seq:
-            curr_idx = visited_seq[-1]
-            ax.plot(
-                [wd_mm[curr_idx]], [truth.curve[curr_idx]],
-                marker="o", markersize=13.0,
-                color=style.color, markeredgecolor="#ffffff",
-                markeredgewidth=2.0, zorder=8,
-                label="_nolegend_",
-            )
+    # Filter history up to replay_step
+    active_hist = history[:replay_step] if replay_step is not None else history
+    if not active_hist:
+        return
 
-    # Coarse peak star (only show if replay is complete or not replaying)
-    show_peak = replay_step is None or replay_step >= len(result.visited)
-    if show_peak and 0 <= result.coarse_idx <= last:
+    # Separate coarse vs fine probes
+    coarse_pts = []
+    fine_pts = []
+    overshoot_pts = []
+
+    for item in active_hist:
+        z = item.get("z", item.get("idx", 0))
+        score = item.get("score", curve[z] if 0 <= z < num_frames else 0.0)
+        phase = item.get("phase", "COARSE")
+        step_num = item.get("step", len(coarse_pts) + len(fine_pts) + 1)
+
+        if phase in ("INIT", "COARSE_PROBE", "COARSE"):
+            coarse_pts.append((z, score, step_num))
+        elif phase == "OVERSHOOT":
+            overshoot_pts.append((z, score, step_num))
+        else:  # FINE, CONVERGED
+            fine_pts.append((z, score, step_num))
+
+    # Draw Phase 1: Coarse Step line and markers
+    if coarse_pts:
+        cx = [p[0] for p in coarse_pts]
+        cy = [p[1] for p in coarse_pts]
         ax.plot(
-            [wd_mm[result.coarse_idx]], [truth.curve[result.coarse_idx]],
-            marker="*", markersize=14.0, color=style.color,
-            markeredgecolor="#ffffff", markeredgewidth=1.2,
-            linestyle="none", zorder=6, label="_nolegend_",
+            cx, cy,
+            color=COLOR_COARSE, linewidth=2.0, linestyle="-",
+            marker="o", markersize=6.5, markeredgecolor="#ffffff", markeredgewidth=1.2,
+            zorder=4, label="Phase 1: Coarse Step",
+        )
+        for z, score, num in coarse_pts:
+            ax.annotate(
+                f"#{num}", (z, score),
+                xytext=(0, 7), textcoords="offset points",
+                fontsize=7.5, fontweight="bold", color=COLOR_COARSE,
+                ha="center", va="bottom", zorder=5,
+            )
+
+    # Draw Overshoot marker
+    for z, score, num in overshoot_pts:
+        ax.plot(
+            [z], [score],
+            marker="o", markersize=8.0, color=COLOR_OVERSHOOT,
+            markeredgecolor="#ffffff", markeredgewidth=1.5,
+            linestyle="none", zorder=6, label="Overshoot",
+        )
+        ax.annotate(
+            f"#{num}", (z, score),
+            xytext=(0, 7), textcoords="offset points",
+            fontsize=7.5, fontweight="bold", color=COLOR_OVERSHOOT,
+            ha="center", va="bottom", zorder=6,
         )
 
-    # Fine sub-frame peak vertical line
-    if show_peak and result.fit_ok and not math.isnan(result.fine_wd_mm):
-        ax.axvline(
-            result.fine_wd_mm,
-            color=style.color, linestyle="--", linewidth=1.5,
-            alpha=FINE_LINE_ALPHA, zorder=3, label="_nolegend_",
+    # Draw Phase 2: Fine Refinement line and markers
+    if fine_pts:
+        fx = [p[0] for p in fine_pts]
+        fy = [p[1] for p in fine_pts]
+        ax.plot(
+            fx, fy,
+            color=COLOR_FINE, linewidth=2.0, linestyle="-",
+            marker="o", markersize=6.5, markeredgecolor="#ffffff", markeredgewidth=1.2,
+            zorder=5, label="Phase 2: Fine Refinement",
+        )
+        for z, score, num in fine_pts:
+            ax.annotate(
+                f"#{num}", (z, score),
+                xytext=(0, 7), textcoords="offset points",
+                fontsize=7.5, fontweight="bold", color=COLOR_FINE,
+                ha="center", va="bottom", zorder=6,
+            )
+
+    # Draw active probe highlight & local tangent line
+    current_rec = active_hist[-1]
+    curr_z = current_rec.get("z", current_rec.get("idx", 0))
+    curr_score = current_rec.get("score", curve[curr_z] if 0 <= curr_z < num_frames else 0.0)
+    curr_grad = float(current_rec.get("gradient", 0.0) or 0.0)
+
+    # Halo on current probe
+    ax.plot(
+        [curr_z], [curr_score],
+        marker="o", markersize=13.0,
+        color="none", markeredgecolor=COLOR_HALO,
+        markeredgewidth=2.4, zorder=8,
+    )
+
+    # Tangent line d(NV)/dZ
+    if abs(curr_grad) > 1e-6:
+        tangent_span = 12.0
+        tz = np.array([curr_z - tangent_span, curr_z + tangent_span])
+        ty = curr_score + curr_grad * (tz - curr_z)
+        ax.plot(
+            tz, ty,
+            color=COLOR_TANGENT, linestyle="--", linewidth=1.8,
+            alpha=0.85, zorder=7, label="Tangent d(NV)/dZ",
         )
