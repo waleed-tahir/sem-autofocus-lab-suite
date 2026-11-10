@@ -7,8 +7,8 @@ A high-performance desktop application for scanning electron microscopy (SEM) au
 ### 1. Minimal 4-Tab Interface
 - **Datasets**: Load SEM image stacks, calibrate geometry (working distances), and inspect individual frames.
 - **Run & Results**: Unified execution controls and output inspection. Select target datasets, algorithms, and focus measures; view the sharpest frame, numeric summaries, and sortable results table.
-- **Focus Curve**: Full focal curve trajectory visualization with interactive step-by-step replay controls (Play, Step, Slider, Reset).
-- **Algorithm Comparison**: Direct trade-off analysis comparing **Global Scan** vs **Gradient Search** with GPU-accelerated PyQtGraph charts, key performance metrics (KPIs), and exposure/beam-time savings matrix.
+- **Focus Curve**: Full focal curve trajectory HUD with metric cards, playback controls, live parameter sliders, and step-by-step execution telemetry log.
+- **Algorithm Comparison**: Direct trade-off analysis comparing **Global Scan** vs **Gradient Search** with interactive comparative charts, key performance metrics (KPIs), and exposure/beam-time savings matrix.
 
 ### 2. Supported Focus Measures
 - **Normalized Variance**:
@@ -20,7 +20,7 @@ A high-performance desktop application for scanning electron microscopy (SEM) au
 
 ### 3. Supported Search Algorithms
 - **Global Scan (exhaustive)**: Linear sweep across all focal planes $[0, \text{max\_idx}]$; serves as the ground-truth baseline.
-- **Gradient Search**: Sub-linear gradient ascent using adaptive centred finite differences and statistical noise verification against fake local maxima.
+- **Gradient Search**: Coarse-to-fine gradient ascent: initial directional slope probe, ascending gradient climb, overshoot reversal, and decayed interval refinement with step-by-step execution telemetry.
 
 ## Requirements
 
