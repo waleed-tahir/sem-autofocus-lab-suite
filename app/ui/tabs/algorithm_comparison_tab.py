@@ -7,6 +7,7 @@ and the beam-time savings matrix.
 from __future__ import annotations
 
 import logging
+import math
 from typing import Optional
 
 from matplotlib.figure import Figure
@@ -130,6 +131,7 @@ class AlgorithmComparisonTab(QWidget):
             caption = QLabel(title.upper())
             caption.setStyleSheet("font-size: 9.5px; font-weight: 600; color: #5e5e5e; letter-spacing: 0.3px;")
             value = QLabel("-")
+            value.setWordWrap(True)
             value.setStyleSheet(f"font-size: 12.5px; font-weight: 600; color: {text_color};")
             tl.addWidget(caption)
             tl.addWidget(value)
@@ -187,6 +189,25 @@ class AlgorithmComparisonTab(QWidget):
         results = self._current_results()
         draw_algorithm_bars(figure, results)
 
+    @staticmethod
+    def _is_converged(r: RunResult, max_error_frames: float = 10.0, max_error_um: float = 60.0) -> bool:
+        """Tell whether a run successfully converged to focus within tolerance."""
+        err_frames = (
+            r.coarse_error_frames
+            if (r.coarse_error_frames is not None and not math.isnan(r.coarse_error_frames))
+            else None
+        )
+        err_um = (
+            r.coarse_error_um
+            if (r.coarse_error_um is not None and not math.isnan(r.coarse_error_um))
+            else None
+        )
+        if err_frames is not None:
+            return err_frames <= max_error_frames
+        if err_um is not None:
+            return err_um <= max_error_um
+        return True
+
     def _update_kpis(self, results: list[RunResult]) -> None:
         if not results:
             self._kpi_best_algo_val.setText("-")
@@ -201,16 +222,67 @@ class AlgorithmComparisonTab(QWidget):
         sublinear = [r for r in results if r.algorithm_key != "global_scan"]
         candidates = sublinear if sublinear else results
 
-        best_saved = max(candidates, key=lambda r: r.frames_saved_percent(base_frames))
-        fastest = min(results, key=lambda r: r.elapsed_ms)
-        min_err = min(results, key=lambda r: r.coarse_error_um if r.coarse_error_um is not None else 999.0)
+        # 1. Optimal Algorithm:
+        # Must satisfy focal convergence (within depth-of-field / coarse frame tolerance).
+        # Among converged candidates, pick the one with the highest frame savings (or fastest/lowest error).
+        # If no algorithm converged, fall back to the one closest to focus.
+        converged = [r for r in candidates if self._is_converged(r)]
 
-        saved_pct = f"{best_saved.frames_saved_percent(base_frames):.1f}%"
-        self._kpi_best_algo_val.setText(best_saved.algorithm)
-        self._kpi_max_savings_val.setText(saved_pct)
+        if converged:
+            optimal = max(
+                converged,
+                key=lambda r: (
+                    r.frames_saved_percent(base_frames),
+                    -(r.coarse_error_um if (r.coarse_error_um is not None and not math.isnan(r.coarse_error_um)) else 999.0),
+                    -r.elapsed_ms,
+                ),
+            )
+        else:
+            optimal = min(
+                candidates,
+                key=lambda r: (
+                    r.coarse_error_um if (r.coarse_error_um is not None and not math.isnan(r.coarse_error_um)) else 9999.0
+                ),
+            )
+
+        # 2. Max Frames Saved:
+        # Savings of the optimal converged algorithm relative to the baseline
+        saved_pct_val = optimal.frames_saved_percent(base_frames)
+        saved_pct_str = f"{saved_pct_val:.1f}%" if not math.isnan(saved_pct_val) else "0.0%"
+
+        # 3. Fastest Convergence:
+        # Minimum runtime among converged algorithms (or all candidates if none converged)
+        fast_pool = converged if converged else candidates
+        fastest = min(fast_pool, key=lambda r: r.elapsed_ms)
+
+        # 4. Min Error vs Baseline:
+        # Best accuracy among candidate search algorithms compared against the baseline
+        err_pool = sublinear if sublinear else results
+        min_err = min(
+            err_pool,
+            key=lambda r: (
+                r.coarse_error_um if (r.coarse_error_um is not None and not math.isnan(r.coarse_error_um)) else 9999.0
+            ),
+        )
+        err_val = (
+            f"{min_err.coarse_error_um:.2f} µm"
+            if (min_err.coarse_error_um is not None and not math.isnan(min_err.coarse_error_um))
+            else "-"
+        )
+
+        self._kpi_best_algo_val.setText(optimal.algorithm)
+        self._kpi_best_algo_val.setToolTip(
+            f"{optimal.algorithm}\nCoarse Error: {optimal.coarse_error_um:.2f} µm\nFrames Saved: {saved_pct_str}"
+        )
+
+        self._kpi_max_savings_val.setText(saved_pct_str)
+        self._kpi_max_savings_val.setToolTip(f"Achieved by {optimal.algorithm} relative to {base_frames} baseline frames")
+
         self._kpi_fastest_time_val.setText(f"{fastest.elapsed_ms:.0f} ms ({fastest.algorithm})")
-        err_val = f"{min_err.coarse_error_um:.2f} µm" if min_err.coarse_error_um is not None else "-"
+        self._kpi_fastest_time_val.setToolTip(f"{fastest.algorithm}: {fastest.elapsed_ms:.1f} ms")
+
         self._kpi_min_error_val.setText(f"{err_val} ({min_err.algorithm})")
+        self._kpi_min_error_val.setToolTip(f"{min_err.algorithm}: {err_val} error vs baseline")
 
     def _fill_table(self, results: list[RunResult]) -> None:
         rows = frames_saved_table(results)

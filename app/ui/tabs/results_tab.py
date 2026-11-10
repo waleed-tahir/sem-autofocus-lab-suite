@@ -19,6 +19,10 @@ import logging
 import math
 from typing import Optional
 
+import numpy as np
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
+
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
     QComboBox,
@@ -131,18 +135,27 @@ class ResultsTab(QWidget):
         coarse_layout.addWidget(self._coarse_panel)
 
         fine_group = QGroupBox("Fine result (quadratic fit)")
-        fine_group.setMinimumHeight(200)
+        fine_group.setMinimumHeight(280)
         fine_layout = QVBoxLayout(fine_group)
-        fine_layout.setContentsMargins(8, 10, 8, 8)
+        fine_layout.setContentsMargins(8, 8, 8, 8)
+        fine_layout.setSpacing(6)
+
+        self._fit_fig = Figure(figsize=(3.8, 1.8), dpi=90, facecolor="#ffffff")
+        self._fit_fig.set_layout_engine("constrained")
+        self._fit_canvas = FigureCanvasQTAgg(self._fit_fig)
+        self._fit_canvas.setMinimumHeight(140)
+        self._fit_canvas.setMaximumHeight(170)
+        fine_layout.addWidget(self._fit_canvas)
+
         fine_layout.addWidget(self._fine_panel)
 
         summaries = QWidget()
         summary_layout = QVBoxLayout(summaries)
         summary_layout.setContentsMargins(0, 0, 0, 0)
         summary_layout.setSpacing(8)
-        summary_layout.addWidget(coarse_group, stretch=1)
-        summary_layout.addWidget(fine_group, stretch=1)
-        summaries.setMinimumWidth(380)
+        summary_layout.addWidget(coarse_group, stretch=2)
+        summary_layout.addWidget(fine_group, stretch=3)
+        summaries.setMinimumWidth(400)
 
         panel = QSplitter(Qt.Orientation.Horizontal)
         panel.addWidget(image_group)
@@ -306,11 +319,92 @@ class ResultsTab(QWidget):
             self._caption.setText(_NO_RUN_TEXT)
             self._coarse_panel.set_lines([_NO_RUN_TEXT])
             self._fine_panel.set_lines([])
+            self._draw_mini_parabola(None)
             return
 
         self._show_coarse_frame(result)
         self._coarse_panel.set_lines(self._coarse_lines(result))
         self._fine_panel.set_lines(self._fine_lines(result))
+        self._draw_mini_parabola(result)
+
+    def _draw_mini_parabola(self, result: Optional[RunResult]) -> None:
+        """Render a compact parabola fit inset in the Fine result panel."""
+        self._fit_fig.clear()
+        if (
+            result is None
+            or not result.fit_ok
+            or result.fit_coeffs is None
+            or result.fit_window is None
+        ):
+            ax = self._fit_fig.add_subplot(111)
+            msg = "No quadratic fit available" if result else "No run selected"
+            ax.text(
+                0.5, 0.5, msg,
+                ha="center", va="center",
+                fontsize=9.0, color="#94a3b8",
+            )
+            ax.set_axis_off()
+            self._fit_canvas.draw()
+            return
+
+        ax = self._fit_fig.add_subplot(111)
+        lo, hi = result.fit_window
+        points = result.fit_points or {}
+
+        # 1. Measured sample points in window
+        if points:
+            px = sorted(points.keys())
+            py = [points[x] for x in px]
+            ax.scatter(px, py, color="#1e293b", s=25, zorder=4, label="Samples")
+
+        # 2. Continuous dense parabola curve
+        dense_z = np.linspace(lo, hi, 100)
+        a0, a1, a2 = result.fit_coeffs
+        d_star = -a1 / (2.0 * a2) if abs(a2) > 1e-12 else 0.0
+        denom = result.fine_idx - result.coarse_idx
+        if abs(denom) > 1e-6:
+            scale = d_star / denom
+        elif abs(result.coarse_wd_mm - result.coarse_idx) > 1e-3:
+            scale = 0.005
+        else:
+            scale = 1.0
+        d_dense = (dense_z - result.coarse_idx) * scale
+        pred_y = a0 + a1 * d_dense + a2 * (d_dense ** 2)
+        ax.plot(
+            dense_z, pred_y,
+            color="#d97706", linewidth=2.0, zorder=5,
+            label=f"Parabola (R²={result.fit_r2:.2f})",
+        )
+
+        # 3. Sub-frame Vertex Crosshair
+        ax.axvline(result.fine_idx, color="#059669", linestyle=":", linewidth=1.2, alpha=0.7)
+        ax.axhline(result.fine_value, color="#059669", linestyle=":", linewidth=1.2, alpha=0.7)
+        ax.plot(
+            [result.fine_idx], [result.fine_value],
+            marker="D", markersize=7.5, color="#059669",
+            markeredgecolor="#ffffff", markeredgewidth=1.2,
+            linestyle="none", zorder=6,
+            label=f"Vertex Z*={result.fine_idx:.2f}",
+        )
+
+        # 4. Discrete Coarse Peak Marker
+        ax.plot(
+            [result.coarse_idx], [result.coarse_value],
+            marker="o", markersize=6.0, color="#2563eb",
+            markeredgecolor="#ffffff", markeredgewidth=1.0,
+            linestyle="none", zorder=5,
+            label=f"Coarse Z={result.coarse_idx}",
+        )
+
+        ax.set_title(f"Parabola Fit Window [Frames {lo}..{hi}]", fontsize=8.5, fontweight="600", pad=3, color="#1c1c1c")
+        ax.set_xlabel("Focal Plane Z", fontsize=7.5, color="#5e5e5e", labelpad=2)
+        ax.set_ylabel("NV Score", fontsize=7.5, color="#5e5e5e", labelpad=2)
+        ax.tick_params(labelsize=7.0, pad=2)
+        ax.grid(True, linestyle="--", alpha=0.4, color="#e5e7eb")
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        ax.legend(loc="upper right", fontsize=7.0, frameon=True, facecolor="#ffffff", edgecolor="#e2e8f0", borderpad=0.2)
+        self._fit_canvas.draw()
 
     def _show_coarse_frame(self, result: RunResult) -> None:
         """Load and show the sharpest frame of a run."""

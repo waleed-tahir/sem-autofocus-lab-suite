@@ -3,9 +3,9 @@
 Styled for Fluent UI Desktop:
 - Pure white background with subtle, elegant Fluent palette
 - Smooth reference curve always drawn in recessive slate grey
-- Phase 1: Coarse Step path in vibrant Fluent Blue (#0078d4)
+- Phase 1: Gradient Climb path in vibrant Fluent Blue (#0078d4)
 - Overshoot marker in vivid Crimson (#dc2626)
-- Phase 2: Fine Refinement path in warm Amber (#d97706)
+- Phase 2: Peak Bracketing path in warm Amber (#d97706)
 - Local tangent line d(NV)/dZ at the active inspection step
 - Zero text clutter on Global Scan (clean continuous trace)
 """
@@ -37,6 +37,8 @@ COLOR_OVERSHOOT = "#dc2626"     # Crimson for Overshoot
 COLOR_TANGENT = "#ef4444"       # Coral-red dashed tangent line
 COLOR_PEAK = "#059669"          # Emerald green for Global Peak
 COLOR_HALO = "#0067c0"          # Fluent Blue halo for active probe
+COLOR_PARABOLA = "#d97706"      # Golden Amber for Fitted Parabola Arc
+COLOR_VERTEX = "#059669"        # Emerald Green for Sub-Frame Fine Vertex
 
 
 def draw_focus_curve(
@@ -45,6 +47,7 @@ def draw_focus_curve(
     results: Sequence[RunResult] = (),
     replay_step: Optional[int] = None,
     show_global: bool = True,
+    show_fit: bool = True,
 ) -> None:
     """Draw the smooth focus curve and coarse-to-fine trajectory with Fluent styling."""
     figure.clear()
@@ -79,20 +82,51 @@ def draw_focus_curve(
             linestyle="none", zorder=6,
             label=f"Global Peak Z={peak_idx}",
         )
-        # Clean label with subtle offset
         y_span = float(np.ptp(curve)) if float(np.ptp(curve)) > 0 else 1.0
-        ax.annotate(
-            f"Global Peak Z={peak_idx}",
-            xy=(peak_idx, peak_val),
-            xytext=(peak_idx, peak_val + y_span * 0.04),
-            ha="center", va="bottom",
-            fontsize=8.5, fontweight="600", color=COLOR_PEAK,
-            zorder=7,
-        )
+
+        # Check if fine quadratic fit is active to prevent text collisions
+        active_fit_res = None
+        if show_fit:
+            for r in results:
+                if (
+                    r.fit_ok
+                    and r.fit_coeffs
+                    and r.fit_window
+                    and (replay_step is None or replay_step >= len(r.extra.get("history", [])))
+                ):
+                    active_fit_res = r
+                    break
+
+        if active_fit_res is not None:
+            # Place Global Peak on opposite side of Fine Peak
+            if active_fit_res.fine_idx >= peak_idx:
+                g_xoff, g_ha = -15.0, "right"
+            else:
+                g_xoff, g_ha = +15.0, "left"
+            ax.annotate(
+                f"Global Peak Z={peak_idx}",
+                xy=(peak_idx, peak_val),
+                xytext=(peak_idx + g_xoff, peak_val + y_span * 0.04),
+                ha=g_ha, va="bottom",
+                fontsize=8.5, fontweight="600", color=COLOR_PEAK,
+                zorder=7,
+                bbox=dict(boxstyle="round,pad=0.25", facecolor="#ffffff", edgecolor=COLOR_PEAK, alpha=0.92, lw=0.8),
+                arrowprops=dict(arrowstyle="->", color=COLOR_PEAK, lw=1.0),
+            )
+        else:
+            ax.annotate(
+                f"Global Peak Z={peak_idx}",
+                xy=(peak_idx, peak_val),
+                xytext=(peak_idx, peak_val + y_span * 0.04),
+                ha="center", va="bottom",
+                fontsize=8.5, fontweight="600", color=COLOR_PEAK,
+                zorder=7,
+                bbox=dict(boxstyle="round,pad=0.25", facecolor="#ffffff", edgecolor=COLOR_PEAK, alpha=0.92, lw=0.8),
+            )
 
     # 3. Visited trajectories
     for result in results:
-        _draw_result_trajectory(ax, truth, result, replay_step=replay_step)
+        _draw_result_trajectory(ax, truth, result, replay_step=replay_step, show_fit=show_fit)
 
     # 4. Fluent Axes and Typography
     measure_name = truth.measure_name if truth else "Normalized Variance"
@@ -137,9 +171,10 @@ def draw_focus_curve(
             fontsize=8.5,
         )
 
-    # Clean Y-axis number formatting
+    # Clean Y-axis headroom and number formatting
     y_min, y_max = ax.get_ylim()
     y_span = abs(y_max - y_min)
+    ax.set_ylim(y_min, y_max + y_span * 0.08)
     if y_span < 5:
         ax.yaxis.set_major_formatter(lambda x, pos: f"{x:.2f}")
     elif y_span < 50:
@@ -155,6 +190,7 @@ def _draw_result_trajectory(
     truth: GroundTruth,
     result: RunResult,
     replay_step: Optional[int] = None,
+    show_fit: bool = True,
 ) -> None:
     """Render the step-by-step search trajectory."""
     curve = truth.curve
@@ -188,37 +224,37 @@ def _draw_result_trajectory(
     if not active_hist:
         return
 
-    # Coarse path includes INIT, COARSE_PROBE, COARSE, and OVERSHOOT (the climb)
-    coarse_pts = []
+    # Climb path includes INIT, PROBE, CLIMB, ESCAPE_PROBE, and OVERSHOOT
+    climb_pts = []
     overshoot_pt = None
-    fine_pts = []
+    bracket_pts = []
 
     for item in active_hist:
         z = item.get("z", item.get("idx", 0))
         score = item.get("score", curve[z] if 0 <= z < num_frames else 0.0)
-        phase = item.get("phase", "COARSE")
+        phase = item.get("phase", "CLIMB")
         step_num = item.get("step", 1)
 
-        if phase in ("INIT", "COARSE_PROBE", "COARSE"):
-            coarse_pts.append((z, score, step_num))
+        if phase in ("INIT", "PROBE", "COARSE_PROBE", "CLIMB", "COARSE", "ESCAPE_PROBE"):
+            climb_pts.append((z, score, step_num))
         elif phase == "OVERSHOOT":
             overshoot_pt = (z, score, step_num)
-            coarse_pts.append((z, score, step_num))
-        else:  # FINE, CONVERGED
-            fine_pts.append((z, score, step_num))
+            climb_pts.append((z, score, step_num))
+        else:  # BRACKET, FINE, CONVERGED
+            bracket_pts.append((z, score, step_num))
 
-    # Draw Phase 1: Coarse Step line (connecting climb through overshoot)
-    if coarse_pts:
-        cx = [p[0] for p in coarse_pts]
-        cy = [p[1] for p in coarse_pts]
+    # Draw Phase 1: Gradient Climb line (connecting climb through overshoot)
+    if climb_pts:
+        cx = [p[0] for p in climb_pts]
+        cy = [p[1] for p in climb_pts]
         ax.plot(
             cx, cy,
             color=COLOR_COARSE, linewidth=2.2, linestyle="-",
             marker="o", markersize=6.5, markeredgecolor="#ffffff", markeredgewidth=1.2,
-            zorder=4, label="Phase 1: Coarse Step",
+            zorder=4, label="Phase 1: Gradient Climb",
         )
         # Annotate step numbers cleanly
-        for z, score, num in coarse_pts:
+        for z, score, num in climb_pts:
             if overshoot_pt and (z, score, num) == overshoot_pt:
                 continue  # Overshoot annotated separately
             ax.annotate(
@@ -244,17 +280,17 @@ def _draw_result_trajectory(
             ha="center", va="bottom", zorder=6,
         )
 
-    # Draw Phase 2: Fine Refinement line and markers
-    if fine_pts:
-        fx = [p[0] for p in fine_pts]
-        fy = [p[1] for p in fine_pts]
+    # Draw Phase 2: Peak Bracketing line and markers
+    if bracket_pts:
+        fx = [p[0] for p in bracket_pts]
+        fy = [p[1] for p in bracket_pts]
         ax.plot(
             fx, fy,
             color=COLOR_FINE, linewidth=2.2, linestyle="-",
             marker="o", markersize=6.5, markeredgecolor="#ffffff", markeredgewidth=1.2,
-            zorder=5, label="Phase 2: Fine Refinement",
+            zorder=5, label="Phase 2: Peak Bracketing",
         )
-        for z, score, num in fine_pts:
+        for z, score, num in bracket_pts:
             ax.annotate(
                 f"#{num}", (z, score),
                 xytext=(0, 7), textcoords="offset points",
@@ -285,4 +321,66 @@ def _draw_result_trajectory(
             tz, ty,
             color=COLOR_TANGENT, linestyle="--", linewidth=1.8,
             alpha=0.9, zorder=7, label="Tangent d(NV)/dZ",
+        )
+
+    # 5. Quadratic Parabola Overlay Arc & Sub-Frame Fine Vertex (Option A)
+    if (
+        show_fit
+        and result.fit_ok
+        and result.fit_coeffs
+        and result.fit_window
+        and (replay_step is None or replay_step >= len(history))
+    ):
+        lo, hi = result.fit_window
+        # Shaded fitting window span
+        ax.axvspan(lo, hi, color="#fef3c7", alpha=0.45, zorder=1, label=f"Fit Window [{lo}..{hi}]")
+
+        # Continuous dense parabola arc
+        dense_z = np.linspace(lo, hi, 100)
+        a0, a1, a2 = result.fit_coeffs
+        d_star = -a1 / (2.0 * a2) if abs(a2) > 1e-12 else 0.0
+        denom = result.fine_idx - result.coarse_idx
+        if abs(denom) > 1e-6:
+            scale = d_star / denom
+        elif truth is not None and len(getattr(truth, "wd_mm", [])) > 1:
+            scale = abs(float(truth.wd_mm[1] - truth.wd_mm[0]))
+        elif abs(result.coarse_wd_mm - result.coarse_idx) > 1e-3:
+            scale = 0.005
+        else:
+            scale = 1.0
+        d_dense = (dense_z - result.coarse_idx) * scale
+        pred_y = a0 + a1 * d_dense + a2 * (d_dense ** 2)
+        ax.plot(
+            dense_z, pred_y,
+            color=COLOR_PARABOLA, linewidth=2.4, linestyle="-", zorder=6,
+            label=f"Fitted Parabola (R²={result.fit_r2:.2f})",
+        )
+
+        # Sub-frame Fine Vertex Marker
+        ax.plot(
+            [result.fine_idx], [result.fine_value],
+            marker="D", markersize=9.5, color=COLOR_VERTEX,
+            markeredgecolor="#ffffff", markeredgewidth=1.8,
+            linestyle="none", zorder=7,
+            label=f"Fine Peak Z*={result.fine_idx:.2f}",
+        )
+
+        # Annotation callout with arrow and clean white card badge
+        y_span = float(np.ptp(curve)) if float(np.ptp(curve)) > 0 else 1.0
+        peak_idx = truth.peak_idx
+        # Position fine peak on opposite side of Global Peak to guarantee zero overlap
+        if result.fine_idx >= peak_idx:
+            f_xoff, f_ha = +15.0, "left"
+        else:
+            f_xoff, f_ha = -15.0, "right"
+
+        ax.annotate(
+            f"Fine Peak Z* = {result.fine_idx:.2f}\n(WD = {result.fine_wd_mm:.4f} mm)",
+            xy=(result.fine_idx, result.fine_value),
+            xytext=(result.fine_idx + f_xoff, result.fine_value + y_span * 0.07),
+            ha=f_ha, va="bottom",
+            fontsize=8.5, fontweight="700", color=COLOR_VERTEX,
+            zorder=8,
+            bbox=dict(boxstyle="round,pad=0.30", facecolor="#ffffff", edgecolor=COLOR_VERTEX, alpha=0.95, lw=1.1),
+            arrowprops=dict(arrowstyle="->", color=COLOR_VERTEX, lw=1.2),
         )

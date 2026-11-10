@@ -69,6 +69,7 @@ def gradient_descent_search_modified(
     adaptive: bool = False,
     stride: int = 1,
     fmo_name: Optional[str] = None,
+    probe_step: int = 2,
     stochastic_jitter: float = 0.25,
     max_escape_attempts: int = 2,
     seed: Optional[int] = None,
@@ -93,6 +94,7 @@ def gradient_descent_search_modified(
         adaptive: Scale coarse step dynamically by local slope |d(NV)/dZ|.
         stride: Pixel subsampling stride (default: 1).
         fmo_name: Focus measure operator key.
+        probe_step: Initial probe step size Delta_Z_probe to measure slope (default: 2 planes).
         stochastic_jitter: Maximum percentage perturbation applied to the decreasing factor.
         max_escape_attempts: Number of stochastic exploration attempts to escape local maxima.
         seed: Random number generator seed for deterministic reproducibility.
@@ -113,6 +115,7 @@ def gradient_descent_search_modified(
     else:
         z0 = max(0, min(max_idx, int(round(start_idx))))
 
+    probe_step = max(1, int(round(probe_step)))
     coarse_step = max(2, int(round(coarse_step)))
     decay = max(0.1, min(0.9, float(decay)))
     stochastic_jitter = max(0.05, min(0.60, float(stochastic_jitter)))
@@ -179,23 +182,23 @@ def gradient_descent_search_modified(
     z_init, s_init = probe(z0, "INIT", "Initial stage position capture", dz_override=0)
     best_z, best_s = z_init, s_init
 
-    # 2. COARSE PROBE PHASE
-    if z0 <= 2:
-        probe_step = 2
-        z_probe, s_probe = probe(z0 + probe_step, "COARSE_PROBE", "Probe slope", dz_override=probe_step)
+    # 2. PROBE PHASE
+    if z0 <= probe_step:
+        p_step = probe_step if z0 + probe_step <= max_idx else max(0, max_idx - z0)
+        z_probe, s_probe = probe(z0 + p_step, "PROBE", "Probe slope", dz_override=p_step)
         direction = 1
-        slope = (s_probe - s_init) / float(probe_step)
+        slope = (s_probe - s_init) / float(p_step) if p_step != 0 else 0.0
         history[-1]["decision"] = f"Stage at lower boundary Z={z0} -> Climb +Z"
-    elif z0 >= max_idx - 2:
-        probe_step = -2
-        z_probe, s_probe = probe(z0 + probe_step, "COARSE_PROBE", "Probe slope", dz_override=probe_step)
+    elif z0 >= max_idx - probe_step:
+        p_step = -probe_step if z0 - probe_step >= 0 else -z0
+        z_probe, s_probe = probe(z0 + p_step, "PROBE", "Probe slope", dz_override=p_step)
         direction = -1
-        slope = (s_probe - s_init) / float(probe_step)
+        slope = (s_probe - s_init) / float(p_step) if p_step != 0 else 0.0
         history[-1]["decision"] = f"Stage at upper boundary Z={z0} -> Climb -Z"
     else:
-        probe_step = 2
-        z_probe, s_probe = probe(z0 + probe_step, "COARSE_PROBE", "Probe slope", dz_override=probe_step)
-        slope = (s_probe - s_init) / float(probe_step)
+        p_step = probe_step
+        z_probe, s_probe = probe(z0 + p_step, "PROBE", "Probe slope", dz_override=p_step)
+        slope = (s_probe - s_init) / float(p_step)
         direction = 1 if slope >= 0 else -1
         dir_str = "+Z" if direction > 0 else "-Z"
         history[-1]["decision"] = f"Slope d(NV)/dZ = {slope:+.4f} -> Climb {dir_str}"
@@ -204,7 +207,7 @@ def gradient_descent_search_modified(
         best_z, best_s = z_probe, s_probe
     z_curr = z_probe
 
-    # 3. COARSE ASCENT PHASE
+    # 3. CLIMB PHASE (Ascent along gradient)
     coarse_steps_taken = 0
     reversed_initial = False
 
@@ -227,7 +230,7 @@ def gradient_descent_search_modified(
                     break
 
         dz_val = next_z - z_curr
-        z_eval, s_eval = probe(next_z, "COARSE", f"Coarse step ({dz_val:+d}) along ascending gradient", dz_override=dz_val)
+        z_eval, s_eval = probe(next_z, "CLIMB", f"Ascent step ({dz_val:+d}) along gradient", dz_override=dz_val)
 
         if s_eval > best_s:
             best_z, best_s = z_eval, s_eval
@@ -239,16 +242,16 @@ def gradient_descent_search_modified(
                 direction = -direction
                 reversed_initial = True
                 z_curr = z_init
-                history[-1]["phase"] = "COARSE_PROBE"
+                history[-1]["phase"] = "PROBE"
                 history[-1]["decision"] = f"Initial slope was noise dip (NV {s_eval:.3f} <= {best_s:.3f}) -> Reverse direction to {'+Z' if direction > 0 else '-Z'}"
                 continue
 
             # Overshot peak after climbing
             history[-1]["phase"] = "OVERSHOOT"
-            history[-1]["decision"] = f"Overshot peak! NV dropped ({s_eval:.3f} < {best_s:.3f}) -> Reverse & Refine"
+            history[-1]["decision"] = f"Overshot peak! NV dropped ({s_eval:.3f} < {best_s:.3f}) -> Reverse & Bracket"
             break
 
-    # 4. STOCHASTIC FINE REFINEMENT (Randomly modified decreasing factor)
+    # 4. BRACKET PHASE (Stochastic Peak Bracketing)
     # Stochastically modify decreasing factor: alpha_rand in [decay*(1-jitter), decay*(1+jitter)]
     jitter_val = rng.uniform(-stochastic_jitter, stochastic_jitter)
     stochastic_decay = max(0.15, min(0.85, decay * (1.0 + jitter_val)))
@@ -259,13 +262,13 @@ def gradient_descent_search_modified(
         dz_val = mid_z - history[-1]["z"]
         z_eval, s_eval = probe(
             mid_z,
-            "FINE",
+            "BRACKET",
             f"Stochastic midpoint (decay α={stochastic_decay:.3f}) at Z={mid_z}",
             dz_override=dz_val
         )
         if s_eval > best_s:
             best_z, best_s = z_eval, s_eval
-            history[-1]["decision"] = f"Stochastic refinement improved peak! New Best Z* = {best_z} (NV = {best_s:.3f})"
+            history[-1]["decision"] = f"Stochastic bracketing improved peak! New Best Z_c = {best_z} (NV = {best_s:.3f})"
         else:
             history[-1]["decision"] = f"Bracketing check (α={stochastic_decay:.3f}) at Z={mid_z} (NV={s_eval:.3f} < Best {best_s:.3f})"
 
@@ -280,13 +283,13 @@ def gradient_descent_search_modified(
             dz_val = cand_z - history[-1]["z"]
             z_eval, s_eval = probe(
                 cand_z,
-                "FINE",
+                "BRACKET",
                 f"Stochastic bracket (ΔZ={fine_step}) at Z={cand_z}",
                 dz_override=dz_val
             )
             if s_eval > best_s:
                 best_z, best_s = z_eval, s_eval
-                history[-1]["decision"] = f"Refinement improved peak! New Best Z* = {best_z} (NV = {best_s:.3f})"
+                history[-1]["decision"] = f"Bracketing improved peak! New Best Z_c = {best_z} (NV = {best_s:.3f})"
             else:
                 history[-1]["decision"] = f"Bracketing check at Z={cand_z} (NV={s_eval:.3f} < Best {best_s:.3f})"
 
@@ -294,10 +297,10 @@ def gradient_descent_search_modified(
         cand_z = best_z + offset
         if 0 <= cand_z <= max_idx and cand_z not in evals:
             dz_val = cand_z - history[-1]["z"]
-            z_eval, s_eval = probe(cand_z, "FINE", f"Bracketing check at Z={cand_z}", dz_override=dz_val)
+            z_eval, s_eval = probe(cand_z, "BRACKET", f"Bracketing check at Z={cand_z}", dz_override=dz_val)
             if s_eval > best_s:
                 best_z, best_s = z_eval, s_eval
-                history[-1]["decision"] = f"Refinement improved peak! New Best Z* = {best_z} (NV = {best_s:.3f})"
+                history[-1]["decision"] = f"Bracketing improved peak! New Best Z_c = {best_z} (NV = {best_s:.3f})"
             else:
                 history[-1]["decision"] = f"Bracketing check at Z={cand_z} (NV={s_eval:.3f} < Best {best_s:.3f})"
 
@@ -313,13 +316,13 @@ def gradient_descent_search_modified(
                 dz_val = esc_z - history[-1]["z"]
                 z_eval, s_eval = probe(
                     esc_z,
-                    "FINE",
+                    "ESCAPE_PROBE",
                     f"Stochastic escape probe (attempt {attempt+1}, factor={rand_factor:.2f}) at Z={esc_z}",
                     dz_override=dz_val
                 )
                 if s_eval > best_s:
                     best_z, best_s = z_eval, s_eval
-                    history[-1]["decision"] = f"Stochastic jump escaped local maximum! New Best Z* = {best_z} (NV = {best_s:.3f}). Resuming coarse climb."
+                    history[-1]["decision"] = f"Stochastic jump escaped local maximum! New Best Z_c = {best_z} (NV = {best_s:.3f}). Resuming climb."
                     # Resume coarse climb in this direction from the escaped focal position
                     z_curr = best_z
                     direction = escape_dir
@@ -328,13 +331,13 @@ def gradient_descent_search_modified(
                         if next_z == z_curr:
                             break
                         dz_c = next_z - z_curr
-                        ze_c, se_c = probe(next_z, "COARSE", f"Coarse step ({dz_c:+d}) along ascending gradient", dz_override=dz_c)
+                        ze_c, se_c = probe(next_z, "CLIMB", f"Ascent step ({dz_c:+d}) along gradient", dz_override=dz_c)
                         if se_c > best_s:
                             best_z, best_s = ze_c, se_c
                             z_curr = ze_c
                         else:
                             history[-1]["phase"] = "OVERSHOOT"
-                            history[-1]["decision"] = f"Overshot peak! NV dropped ({se_c:.3f} < {best_s:.3f}) -> Reverse & Refine"
+                            history[-1]["decision"] = f"Overshot peak! NV dropped ({se_c:.3f} < {best_s:.3f}) -> Reverse & Bracket"
                             break
                     escaped = True
                     break
@@ -344,15 +347,15 @@ def gradient_descent_search_modified(
                 cand_z = best_z + offset
                 if 0 <= cand_z <= max_idx and cand_z not in evals:
                     dz_val = cand_z - history[-1]["z"]
-                    z_eval, s_eval = probe(cand_z, "FINE", f"Bracketing check at Z={cand_z}", dz_override=dz_val)
+                    z_eval, s_eval = probe(cand_z, "BRACKET", f"Bracketing check at Z={cand_z}", dz_override=dz_val)
                     if s_eval > best_s:
                         best_z, best_s = z_eval, s_eval
-                        history[-1]["decision"] = f"Refinement improved peak! New Best Z* = {best_z} (NV = {best_s:.3f})"
+                        history[-1]["decision"] = f"Bracketing improved peak! New Best Z_c = {best_z} (NV = {best_s:.3f})"
             break
 
     # 6. CONVERGED PHASE
     history[-1]["phase"] = "CONVERGED"
-    history[-1]["decision"] = f"Converged! Optimal focus locked at Z* = {best_z}"
+    history[-1]["decision"] = f"Converged! Coarse focus locked at Z_c = {best_z}"
 
     return SearchResult(
         best_idx=best_z,

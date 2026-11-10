@@ -102,10 +102,10 @@ def test_coarse_to_fine_gradient_search():
 
     phases = [h["phase"] for h in history]
     assert "INIT" in phases, "Missing INIT phase in telemetry"
-    assert "COARSE_PROBE" in phases, "Missing COARSE_PROBE phase in telemetry"
-    assert "COARSE" in phases, "Missing COARSE phase in telemetry"
+    assert ("PROBE" in phases or "COARSE_PROBE" in phases), "Missing PROBE phase in telemetry"
+    assert ("CLIMB" in phases or "COARSE" in phases), "Missing CLIMB phase in telemetry"
     assert "OVERSHOOT" in phases, "Missing OVERSHOOT phase in telemetry"
-    assert "FINE" in phases, "Missing FINE phase in telemetry"
+    assert ("BRACKET" in phases or "FINE" in phases), "Missing BRACKET phase in telemetry"
     assert "CONVERGED" in phases, "Missing CONVERGED phase in telemetry"
 
     # Verify telemetry columns
@@ -172,6 +172,35 @@ def test_quadratic_fit_synthetic():
     print(f"  [PASS] Quadratic Fit vertex: {fit.idx:.3f} (True: {TRUE_SUB_PEAK:.3f}, R2: {fit.r2:.4f})")
 
 
+def test_probe_step_variation():
+    print("\n--- 5. Testing Initial Probe Step Size Variation ---")
+    TRUE_PEAK = 50
+    MAX_IDX = 100
+
+    def synthetic_eval(idx: int, stride: int = 1, fmo: str | None = None) -> float:
+        return float(100.0 - 0.5 * ((idx - TRUE_PEAK) ** 2))
+
+    for p_step in [1, 3, 5, 8]:
+        z0 = 10
+        res = gradient_descent_search(
+            synthetic_eval,
+            max_idx=MAX_IDX,
+            start_idx=z0,
+            coarse_step=10,
+            probe_step=p_step,
+        )
+        best_idx, evals, history = res
+        assert len(history) >= 2
+        probe_rec = history[1]
+        assert probe_rec["phase"] == "PROBE"
+        assert probe_rec["z"] == z0 + p_step
+        assert probe_rec["step_dz"] == p_step
+        expected_grad = (synthetic_eval(z0 + p_step) - synthetic_eval(z0)) / float(p_step)
+        assert abs(probe_rec["gradient"] - expected_grad) < 1e-5
+        assert abs(best_idx - TRUE_PEAK) <= 2
+        print(f"  [PASS] probe_step={p_step}: probe Z={probe_rec['z']}, step_dz={probe_rec['step_dz']:+d}, grad={probe_rec['gradient']:+.4f}")
+
+
 if __name__ == "__main__":
     print("Running Lab Submission Algorithm Tests...\n")
     test_focus_scores_synthetic()
@@ -179,4 +208,5 @@ if __name__ == "__main__":
     test_coarse_to_fine_gradient_search()
     test_stochastic_gradient_search()
     test_quadratic_fit_synthetic()
+    test_probe_step_variation()
     print("\n=== ALL TESTS PASSED SUCCESSFULLY ===")

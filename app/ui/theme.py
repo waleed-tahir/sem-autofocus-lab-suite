@@ -204,44 +204,37 @@ QComboBox::down-arrow {{
 }}
 
 QComboBox QAbstractItemView,
-QComboBox QListView,
-QFrame QComboBox QAbstractItemView,
-QFrame QComboBox QListView,
-QComboBoxPrivateContainer {{
+QComboBox QListView {{
     background-color: #ffffff;
-    color: #1c1c1c;
-    border: 1px solid #dcdcdc;
-    border-radius: 5px;
-    padding: 4px 0px;
+    color: #1e293b;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 4px;
     selection-background-color: #ebf3fc;
     selection-color: #0067c0;
     outline: none;
 }}
 
 QComboBox QAbstractItemView::item,
-QComboBox QListView::item,
-QFrame QComboBox QAbstractItemView::item,
-QFrame QComboBox QListView::item {{
-    min-height: 24px;
+QComboBox QListView::item {{
+    min-height: 26px;
     padding: 4px 10px;
-    color: #1c1c1c;
-    background-color: transparent;
+    color: #1e293b;
+    background-color: #ffffff;
+    border-radius: 4px;
 }}
 
 QComboBox QAbstractItemView::item:hover,
-QComboBox QListView::item:hover,
-QFrame QComboBox QAbstractItemView::item:hover,
-QFrame QComboBox QListView::item:hover {{
-    background-color: #f3f3f3;
-    color: #1c1c1c;
+QComboBox QListView::item:hover {{
+    background-color: #f1f5f9;
+    color: #0f172a;
 }}
 
 QComboBox QAbstractItemView::item:selected,
-QComboBox QListView::item:selected,
-QFrame QComboBox QAbstractItemView::item:selected,
-QFrame QComboBox QListView::item:selected {{
+QComboBox QListView::item:selected {{
     background-color: #ebf3fc;
     color: #0067c0;
+    font-weight: 600;
 }}
 
 /* Authentic Fluent QSpinBox & QDoubleSpinBox */
@@ -553,6 +546,18 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
 
 
 def apply_theme(app) -> None:
-    """Apply the Fluent QSS stylesheet to the application."""
+    """Apply the Fluent QSS stylesheet and light palette to the application."""
+    from PySide6.QtGui import QColor, QPalette
+    palette = app.palette()
+    palette.setColor(QPalette.ColorRole.Window, QColor("#f8fafc"))
+    palette.setColor(QPalette.ColorRole.WindowText, QColor("#1e293b"))
+    palette.setColor(QPalette.ColorRole.Base, QColor("#ffffff"))
+    palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#f8fafc"))
+    palette.setColor(QPalette.ColorRole.Text, QColor("#1e293b"))
+    palette.setColor(QPalette.ColorRole.Button, QColor("#ffffff"))
+    palette.setColor(QPalette.ColorRole.ButtonText, QColor("#1e293b"))
+    palette.setColor(QPalette.ColorRole.Highlight, QColor("#0067c0"))
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
+    app.setPalette(palette)
     app.setStyleSheet(build_qss())
 

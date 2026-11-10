@@ -133,6 +133,7 @@ def _run_gradient(ctx: RunContext) -> SearchOutcome:
         adaptive=ctx.param_bool("adaptive"),
         stride=stride,
         fmo_name=ctx.measure.key,
+        probe_step=int(ctx.params.get("probe_step", 2)),
     )
     return SearchOutcome(result, fine_stride=stride)
 
@@ -149,6 +150,7 @@ def _run_gradient_modified(ctx: RunContext) -> SearchOutcome:
         adaptive=ctx.param_bool("adaptive"),
         stride=stride,
         fmo_name=ctx.measure.key,
+        probe_step=int(ctx.params.get("probe_step", 2)),
     )
     return SearchOutcome(result, fine_stride=stride)
 
@@ -168,6 +170,11 @@ _FIRST_FRAME = ParamSpec(
 _START_IDX = ParamSpec(
     "start_idx", "Initial Start Plane (Z_0)", "int", 12, minimum=0, maximum=100_000, step=1,
     tooltip="Initial focal plane position Z_0.",
+)
+
+_PROBE_STEP = ParamSpec(
+    "probe_step", "Initial Probe Step Size (ΔZ_probe)", "int", 2, minimum=1, maximum=20, step=1,
+    tooltip="Initial probe step size ΔZ used to measure slope and ascent direction.",
 )
 
 _COARSE_STEP = ParamSpec(
@@ -227,6 +234,7 @@ _SPECS: tuple[AlgorithmSpec, ...] = (
         ),
         params=(
             _START_IDX,
+            _PROBE_STEP,
             _COARSE_STEP,
             _DECAY,
             _ADAPTIVE,
@@ -243,6 +251,7 @@ _SPECS: tuple[AlgorithmSpec, ...] = (
         ),
         params=(
             _START_IDX,
+            _PROBE_STEP,
             _COARSE_STEP,
             _DECAY,
             _ADAPTIVE,

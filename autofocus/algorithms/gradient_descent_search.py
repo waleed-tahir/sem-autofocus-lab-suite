@@ -6,25 +6,25 @@ Laboratory Reference Implementation:
    Stage positioned at initial focal plane Z_0. Compute initial focus measure score
    (Normalized Variance or Mean-Normalized Variance) and mean image intensity.
 
-2. COARSE PROBE:
+2. PROBE:
    Perform a small probe step (ΔZ_probe = +2 planes) to measure the initial discrete slope:
        slope = [Score(Z_0 + ΔZ_probe) - Score(Z_0)] / ΔZ_probe
    Determine climb direction (+Z or -Z) towards the ascending gradient.
 
-3. COARSE ASCENT:
-   Step by ΔZ_coarse (e.g. 10 to 14 planes) in the climb direction along the ascending gradient.
+3. CLIMB:
+   Step by ΔZ_climb (e.g. 10 to 14 planes) in the climb direction along the ascending gradient.
    Optionally adapt step size dynamically based on local gradient magnitude |d(NV)/dZ|.
    Continue until Score(Z_{k+1}) < Score(Z_k), signaling an overshoot past the focal peak.
 
-4. FINE REFINEMENT (Decay & Bracketing):
+4. BRACKET (Decay & Bracketing):
    Reverse direction and refine around the bracketed region using decayed step sizes
    (step * α_decay):
-   - Midpoint evaluation of the overshot coarse interval.
-   - Local bracketing checks at ± ΔZ_fine around the current best candidate.
+   - Midpoint evaluation of the overshot interval.
+   - Local bracketing checks at ± ΔZ_bracket around the current best candidate.
    - Final unit-resolution checks (± 1 plane) to lock onto the discrete maximum.
 
 5. CONVERGED:
-   Stage locks onto optimal focal plane Z* with full execution telemetry log.
+   Stage locks onto optimal coarse focal plane Z_c with full execution telemetry log.
 """
 
 from __future__ import annotations
@@ -74,6 +74,7 @@ def gradient_descent_search(
     adaptive: bool = False,
     stride: int = 1,
     fmo_name: Optional[str] = None,
+    probe_step: int = 2,
     # Backward compatibility parameters
     alpha: Optional[float] = None,
     delta: Optional[int] = None,
@@ -95,6 +96,7 @@ def gradient_descent_search(
         adaptive: Scale coarse step dynamically by local slope |d(NV)/dZ|.
         stride: Pixel subsampling stride (default: 1).
         fmo_name: Focus measure operator key.
+        probe_step: Initial probe step size ΔZ_probe to measure slope (default: 2 planes).
 
     Returns:
         SearchResult container.
@@ -109,6 +111,7 @@ def gradient_descent_search(
     else:
         z0 = max(0, min(max_idx, int(round(start_idx))))
 
+    probe_step = max(1, int(round(probe_step)))
     coarse_step = max(2, int(round(coarse_step)))
     decay = max(0.1, min(0.9, float(decay)))
 
@@ -175,10 +178,18 @@ def gradient_descent_search(
     z_init, s_init = probe(z0, "INIT", "Initial stage position capture", dz_override=0)
     best_z, best_s = z_init, s_init
 
-    # 2. COARSE PROBE PHASE (Probe ΔZ = +2 to determine ascent direction)
-    probe_step = 2 if z0 + 2 <= max_idx else -2
-    z_probe, s_probe = probe(z0 + probe_step, "COARSE_PROBE", "Probe slope", dz_override=probe_step)
-    slope = (s_probe - s_init) / float(probe_step)
+    # 2. PROBE PHASE (Probe ΔZ to determine ascent direction)
+    if z0 + probe_step <= max_idx:
+        p_step = probe_step
+    elif z0 - probe_step >= 0:
+        p_step = -probe_step
+    else:
+        p_step = (max_idx - z0) if (max_idx - z0 >= z0) else -z0
+        if p_step == 0:
+            p_step = 1 if max_idx > 0 else 0
+
+    z_probe, s_probe = probe(z0 + p_step, "PROBE", "Probe slope", dz_override=p_step)
+    slope = (s_probe - s_init) / float(p_step) if p_step != 0 else 0.0
     direction = 1 if slope >= 0 else -1
     dir_str = "+Z" if direction > 0 else "-Z"
     history[-1]["decision"] = f"Slope d(NV)/dZ = {slope:+.4f} -> Climb {dir_str}"
@@ -187,7 +198,7 @@ def gradient_descent_search(
         best_z, best_s = z_probe, s_probe
     z_curr = z_probe
 
-    # 3. COARSE ASCENT PHASE
+    # 3. CLIMB PHASE (Ascent along gradient)
     while True:
         step = coarse_step
         if adaptive and len(history) >= 2:
@@ -201,7 +212,7 @@ def gradient_descent_search(
                 break
 
         dz_val = next_z - z_curr
-        z_eval, s_eval = probe(next_z, "COARSE", f"Coarse step ({dz_val:+d}) along ascending gradient", dz_override=dz_val)
+        z_eval, s_eval = probe(next_z, "CLIMB", f"Ascent step ({dz_val:+d}) along gradient", dz_override=dz_val)
 
         if s_eval > best_s:
             best_z, best_s = z_eval, s_eval
@@ -209,19 +220,19 @@ def gradient_descent_search(
         else:
             # Overshot peak: score dropped
             history[-1]["phase"] = "OVERSHOOT"
-            history[-1]["decision"] = f"Overshot peak! NV dropped ({s_eval:.3f} < {best_s:.3f}) -> Reverse & Refine"
+            history[-1]["decision"] = f"Overshot peak! NV dropped ({s_eval:.3f} < {best_s:.3f}) -> Reverse & Bracket"
             break
 
-    # 4. FINE REFINEMENT PHASE
-    # Step 4a: Midpoint check between previous coarse bounds
+    # 4. BRACKET PHASE (Peak Bracketing Refinement)
+    # Step 4a: Midpoint check between previous bounds
     mid_step = int(round(coarse_step * decay))
     mid_z = best_z - direction * mid_step
     if 0 <= mid_z <= max_idx and mid_z not in evals:
         dz_val = mid_z - history[-1]["z"]
-        z_eval, s_eval = probe(mid_z, "FINE", f"Bracketing check at Z={mid_z}", dz_override=dz_val)
+        z_eval, s_eval = probe(mid_z, "BRACKET", f"Bracketing check at Z={mid_z}", dz_override=dz_val)
         if s_eval > best_s:
             best_z, best_s = z_eval, s_eval
-            history[-1]["decision"] = f"Refinement improved peak! New Best Z* = {best_z} (NV = {best_s:.3f})"
+            history[-1]["decision"] = f"Bracketing improved peak! New Best Z_c = {best_z} (NV = {best_s:.3f})"
         else:
             history[-1]["decision"] = f"Bracketing check at Z={mid_z} (NV={s_eval:.3f} < Best {best_s:.3f})"
 
@@ -231,10 +242,10 @@ def gradient_descent_search(
         cand_z = best_z + offset
         if 0 <= cand_z <= max_idx and cand_z not in evals:
             dz_val = cand_z - history[-1]["z"]
-            z_eval, s_eval = probe(cand_z, "FINE", f"Bracketing check at Z={cand_z}", dz_override=dz_val)
+            z_eval, s_eval = probe(cand_z, "BRACKET", f"Bracketing check at Z={cand_z}", dz_override=dz_val)
             if s_eval > best_s:
                 best_z, best_s = z_eval, s_eval
-                history[-1]["decision"] = f"Refinement improved peak! New Best Z* = {best_z} (NV = {best_s:.3f})"
+                history[-1]["decision"] = f"Bracketing improved peak! New Best Z_c = {best_z} (NV = {best_s:.3f})"
             else:
                 history[-1]["decision"] = f"Bracketing check at Z={cand_z} (NV={s_eval:.3f} < Best {best_s:.3f})"
 
@@ -243,16 +254,16 @@ def gradient_descent_search(
         cand_z = best_z + offset
         if 0 <= cand_z <= max_idx and cand_z not in evals:
             dz_val = cand_z - history[-1]["z"]
-            z_eval, s_eval = probe(cand_z, "FINE", f"Bracketing check at Z={cand_z}", dz_override=dz_val)
+            z_eval, s_eval = probe(cand_z, "BRACKET", f"Bracketing check at Z={cand_z}", dz_override=dz_val)
             if s_eval > best_s:
                 best_z, best_s = z_eval, s_eval
-                history[-1]["decision"] = f"Refinement improved peak! New Best Z* = {best_z} (NV = {best_s:.3f})"
+                history[-1]["decision"] = f"Bracketing improved peak! New Best Z_c = {best_z} (NV = {best_s:.3f})"
             else:
                 history[-1]["decision"] = f"Bracketing check at Z={cand_z} (NV={s_eval:.3f} < Best {best_s:.3f})"
 
     # 5. CONVERGED PHASE
     history[-1]["phase"] = "CONVERGED"
-    history[-1]["decision"] = f"Converged! Optimal focus locked at Z* = {best_z}"
+    history[-1]["decision"] = f"Converged! Coarse focus locked at Z_c = {best_z}"
 
     return SearchResult(
         best_idx=best_z,

@@ -5,7 +5,6 @@ this module gives them a stable key, a display name, and a short explanation for
 
 Lab Submission Edition:
 - Normalized Variance: Var(I) / Mean(I)
-- Mean-Normalized Variance: Var(I) / Mean(I)^2
 """
 
 from __future__ import annotations
@@ -17,7 +16,6 @@ from typing import Callable, Mapping, Optional
 import numpy as np
 
 from autofocus.algorithms import (
-    mean_normalized_variance,
     normalized_variance,
 )
 
@@ -67,16 +65,6 @@ _MEASURES: tuple[FocusMeasure, ...] = (
         description=(
             "Intensity spread divided by mean brightness, so brighter frames "
             "do not score higher by themselves."
-        ),
-    ),
-    FocusMeasure(
-        key="mean_normalized_variance",
-        display_name="Mean-Normalized Variance",
-        func=mean_normalized_variance,
-        formula="Var(I) / Mean(I)^2",
-        description=(
-            "Divides by the squared mean, making the score invariant to global "
-            "brightness changes and beam current drift."
         ),
     ),
 )

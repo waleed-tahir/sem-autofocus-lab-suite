@@ -6,7 +6,7 @@ Fluent Desktop Edition:
 - Clean, uncluttered Focus Curve and Coarse-to-Fine Gradient Trajectory Plot
 - Smooth reference curve always drawn underneath
 - Fluent Playback Controls (Auto-Run, Prev, Step +1, Show Full Run, Reset, Speed Selector)
-- Interactive Live Parameter Sliders (Initial Start Z_0, Coarse Step Size ΔZ, Refinement Decay α, Adaptive Step)
+- Interactive Live Parameter Sliders (Initial Start Z_0, Initial Probe Step ΔZ_probe, Coarse Step Size ΔZ, Refinement Decay α, Adaptive Step)
 - Step-by-Step Gradient Execution Telemetry Log with soft pastel phase badges
 - Synchronized inspection on table row click or canvas click
 """
@@ -14,6 +14,7 @@ Fluent Desktop Edition:
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -80,6 +81,8 @@ class FocusCurveTab(QWidget):
         self._algorithm_combo = QComboBox()
         self._show_global_cb = QCheckBox("Show Reference Curve")
         self._show_global_cb.setChecked(True)
+        self._show_fit_cb = QCheckBox("Show Quadratic Fit")
+        self._show_fit_cb.setChecked(True)
         self._compute_btn = QPushButton("Compute Reference Curve")
         self._compute_btn.setObjectName("primaryButton")
         self._compute_btn.setProperty("accent", True)
@@ -168,6 +171,8 @@ class FocusCurveTab(QWidget):
 
         layout.addSpacing(10)
         layout.addWidget(self._show_global_cb)
+        layout.addSpacing(10)
+        layout.addWidget(self._show_fit_cb)
         layout.addStretch()
         layout.addWidget(self._compute_btn)
         return bar
@@ -275,7 +280,7 @@ class FocusCurveTab(QWidget):
 
         # Row 2: Live Parameter Sliders (Fluent Style)
         row2 = QHBoxLayout()
-        row2.setSpacing(18)
+        row2.setSpacing(14)
 
         # 1. Z0 Slider
         z0_box = QVBoxLayout()
@@ -288,7 +293,18 @@ class FocusCurveTab(QWidget):
         z0_box.addWidget(self._lbl_z0_title)
         z0_box.addWidget(self._slider_z0)
 
-        # 2. Coarse Step Slider
+        # 2. Probe Step Slider
+        probe_box = QVBoxLayout()
+        probe_box.setSpacing(2)
+        self._lbl_probe_title = QLabel("Initial Probe Step (ΔZ_probe):  2 planes")
+        self._lbl_probe_title.setStyleSheet("font-size: 10.5px; color: #475569; font-weight: 600;")
+        self._slider_probe = QSlider(Qt.Orientation.Horizontal)
+        self._slider_probe.setRange(1, 20)
+        self._slider_probe.setValue(2)
+        probe_box.addWidget(self._lbl_probe_title)
+        probe_box.addWidget(self._slider_probe)
+
+        # 3. Coarse Step Slider
         step_box = QVBoxLayout()
         step_box.setSpacing(2)
         self._lbl_step_title = QLabel("Coarse Step Size (ΔZ_coarse):  14 planes")
@@ -299,7 +315,7 @@ class FocusCurveTab(QWidget):
         step_box.addWidget(self._lbl_step_title)
         step_box.addWidget(self._slider_step)
 
-        # 3. Decay Slider
+        # 4. Decay Slider
         decay_box = QVBoxLayout()
         decay_box.setSpacing(2)
         self._lbl_decay_title = QLabel("Refinement Decay (α_decay):  0.50×")
@@ -310,7 +326,7 @@ class FocusCurveTab(QWidget):
         decay_box.addWidget(self._lbl_decay_title)
         decay_box.addWidget(self._slider_decay)
 
-        # 4. Adaptive Checkbox
+        # 5. Adaptive Checkbox
         adapt_box = QVBoxLayout()
         adapt_box.setSpacing(2)
         self._cb_adaptive = QCheckBox("Adaptive Gradient Step")
@@ -321,6 +337,7 @@ class FocusCurveTab(QWidget):
         adapt_box.addWidget(lbl_adapt_desc)
 
         row2.addLayout(z0_box, stretch=2)
+        row2.addLayout(probe_box, stretch=2)
         row2.addLayout(step_box, stretch=2)
         row2.addLayout(decay_box, stretch=2)
         row2.addLayout(adapt_box, stretch=3)
@@ -394,6 +411,7 @@ class FocusCurveTab(QWidget):
         self._measure_combo.currentIndexChanged.connect(self._on_measure_changed)
         self._algorithm_combo.currentIndexChanged.connect(self._on_algo_changed)
         self._show_global_cb.toggled.connect(self._redraw)
+        self._show_fit_cb.toggled.connect(self._on_show_fit_toggled)
         self._compute_btn.clicked.connect(self._on_compute_reference)
 
         # Playback controls
@@ -406,6 +424,7 @@ class FocusCurveTab(QWidget):
 
         # Live sliders
         self._slider_z0.valueChanged.connect(self._on_slider_z0_changed)
+        self._slider_probe.valueChanged.connect(self._on_slider_probe_changed)
         self._slider_step.valueChanged.connect(self._on_slider_step_changed)
         self._slider_decay.valueChanged.connect(self._on_slider_decay_changed)
         self._cb_adaptive.toggled.connect(self._on_adaptive_toggled)
@@ -455,6 +474,10 @@ class FocusCurveTab(QWidget):
             self._slider_z0.setRange(0, ds.max_idx)
             if self._slider_z0.value() > ds.max_idx:
                 self._slider_z0.setValue(min(12, ds.max_idx))
+            max_probe = max(1, min(20, ds.max_idx // 2))
+            self._slider_probe.setMaximum(max_probe)
+            if self._slider_probe.value() > max_probe:
+                self._slider_probe.setValue(min(2, max_probe))
         self._recalculate_current_run()
 
     @Slot()
@@ -468,6 +491,12 @@ class FocusCurveTab(QWidget):
     @Slot(int)
     def _on_slider_z0_changed(self, val: int) -> None:
         self._lbl_z0_title.setText(f"Initial Start Plane (Z_0):  Z = {val}")
+        self._recalculate_current_run()
+
+    @Slot(int)
+    def _on_slider_probe_changed(self, val: int) -> None:
+        unit = "plane" if val == 1 else "planes"
+        self._lbl_probe_title.setText(f"Initial Probe Step (ΔZ_probe):  {val} {unit}")
         self._recalculate_current_run()
 
     @Slot(int)
@@ -522,6 +551,7 @@ class FocusCurveTab(QWidget):
         # Check if algorithm is gradient: execute live with current slider settings
         if algo_key in ("gradient", "gradient_modified"):
             z0 = self._slider_z0.value()
+            probe_step = self._slider_probe.value()
             coarse_step = self._slider_step.value()
             decay = self._slider_decay.value() / 100.0
             adaptive = self._cb_adaptive.isChecked()
@@ -531,6 +561,7 @@ class FocusCurveTab(QWidget):
             algo_spec = require_algo(str(algo_key))
             params = {
                 "start_idx": z0,
+                "probe_step": probe_step,
                 "coarse_step": coarse_step,
                 "decay": decay,
                 "adaptive": adaptive,
@@ -542,7 +573,7 @@ class FocusCurveTab(QWidget):
                 measure=meas,
                 wd_mm=dataset.working_distances(),
                 params=params,
-                apply_fit=False,
+                apply_fit=True,
             )
             self._cached_run_result = run_algorithm(algo_spec, ctx)
         else:
@@ -561,7 +592,7 @@ class FocusCurveTab(QWidget):
                     measure=meas,
                     wd_mm=dataset.working_distances(),
                     params=algo_spec.defaults(),
-                    apply_fit=False,
+                    apply_fit=True,
                 )
                 self._cached_run_result = run_algorithm(algo_spec, ctx)
 
@@ -597,22 +628,44 @@ class FocusCurveTab(QWidget):
         active_rec = history[step_idx] if (history and 0 <= step_idx < len(history)) else None
 
         # 1. Algorithm State Card
+        show_fit = self._show_fit_cb.isChecked()
         if active_rec:
             phase = active_rec.get("phase", "IN PROGRESS")
             if phase == "CONVERGED":
-                self._val_state.setText("● Converged (Focus Locked)")
-                self._val_state.setStyleSheet("border: none; background: transparent; font-size: 14px; font-weight: 700; color: #047857;")
-                self._sub_state.setText(f"Stage locked onto optimal focal plane Z={result.coarse_idx}")
-                self._sub_state.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
+                if show_fit and result.fit_ok and not math.isnan(result.fine_idx):
+                    self._val_state.setText("● Converged + Fine Refined")
+                    self._val_state.setStyleSheet("border: none; background: transparent; font-size: 14px; font-weight: 700; color: #047857;")
+                    self._sub_state.setText(f"Stage locked: Coarse Z_c={result.coarse_idx} | Fine Z*={result.fine_idx:.2f}")
+                    self._sub_state.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
+                else:
+                    self._val_state.setText("● Converged (Focus Locked)")
+                    self._val_state.setStyleSheet("border: none; background: transparent; font-size: 14px; font-weight: 700; color: #047857;")
+                    self._sub_state.setText(f"Stage locked onto optimal focal plane Z={result.coarse_idx}")
+                    self._sub_state.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
             elif phase == "OVERSHOOT":
-                self._val_state.setText("● Overshoot (Reverse & Refine)")
+                self._val_state.setText("● Overshoot (Reverse & Bracket)")
                 self._val_state.setStyleSheet("border: none; background: transparent; font-size: 14px; font-weight: 700; color: #dc2626;")
                 self._sub_state.setText("Score dropped -> Decaying step size")
                 self._sub_state.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
-            elif phase == "FINE":
-                self._val_state.setText("● Fine Refinement")
+            elif phase in ("BRACKET", "FINE"):
+                self._val_state.setText("● Peak Bracketing")
                 self._val_state.setStyleSheet("border: none; background: transparent; font-size: 14px; font-weight: 700; color: #d97706;")
-                self._sub_state.setText("Bracketing around peak")
+                self._sub_state.setText("Bracketing discrete coarse peak")
+                self._sub_state.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
+            elif phase in ("CLIMB", "COARSE"):
+                self._val_state.setText("● Gradient Climb")
+                self._val_state.setStyleSheet("border: none; background: transparent; font-size: 14px; font-weight: 700; color: #0067c0;")
+                self._sub_state.setText("Climbing along ascending gradient")
+                self._sub_state.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
+            elif phase in ("PROBE", "COARSE_PROBE"):
+                self._val_state.setText("● Slope Probe")
+                self._val_state.setStyleSheet("border: none; background: transparent; font-size: 14px; font-weight: 700; color: #0284c7;")
+                self._sub_state.setText("Probing initial slope direction")
+                self._sub_state.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
+            elif phase == "ESCAPE_PROBE":
+                self._val_state.setText("● Escape Probe")
+                self._val_state.setStyleSheet("border: none; background: transparent; font-size: 14px; font-weight: 700; color: #9333ea;")
+                self._sub_state.setText("Stochastic exploration past local trap")
                 self._sub_state.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
             else:
                 self._val_state.setText(f"● {phase.replace('_', ' ').title()}")
@@ -620,10 +673,16 @@ class FocusCurveTab(QWidget):
                 self._sub_state.setText("Climbing along ascending gradient")
                 self._sub_state.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
         else:
-            self._val_state.setText("● Complete")
-            self._val_state.setStyleSheet("border: none; background: transparent; font-size: 14px; font-weight: 700; color: #047857;")
-            self._sub_state.setText(f"Optimal peak Z={result.coarse_idx}")
-            self._sub_state.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
+            if show_fit and result.fit_ok and not math.isnan(result.fine_idx):
+                self._val_state.setText("● Fine Refined (Quadratic Fit)")
+                self._val_state.setStyleSheet("border: none; background: transparent; font-size: 14px; font-weight: 700; color: #047857;")
+                self._sub_state.setText(f"Sub-frame optimal vertex Z*={result.fine_idx:.2f}")
+                self._sub_state.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
+            else:
+                self._val_state.setText("● Complete")
+                self._val_state.setStyleSheet("border: none; background: transparent; font-size: 14px; font-weight: 700; color: #047857;")
+                self._sub_state.setText(f"Optimal peak Z={result.coarse_idx}")
+                self._sub_state.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #64748b;")
 
         # 2. SEM Captures Used Card
         total_global = truth.curve.size if truth else 199
@@ -653,18 +712,30 @@ class FocusCurveTab(QWidget):
         # 4. Best Peak Found Card
         true_max = truth.peak_idx if truth else result.coarse_idx
         dz_err = abs(result.coarse_idx - true_max)
-        self._val_peak.setText(f"Z* = {result.coarse_idx} (True Max: {true_max})")
-        self._val_peak.setStyleSheet("border: none; background: transparent; font-size: 15px; font-weight: 700; color: #0067c0;")
-        if dz_err == 0:
-            self._sub_peak.setText("Exact Global Peak Locked (ΔZ = 0)")
+        if show_fit and result.fit_ok and not math.isnan(result.fine_idx):
+            self._val_peak.setText(f"Z_c={result.coarse_idx} | Z*={result.fine_idx:.2f}")
+            self._val_peak.setStyleSheet("border: none; background: transparent; font-size: 13.5px; font-weight: 700; color: #0067c0;")
+            self._sub_peak.setText(f"Fine WD = {result.fine_wd_mm:.4f} mm (R²={result.fit_r2:.3f})")
             self._sub_peak.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #047857; font-weight: 600;")
         else:
-            self._sub_peak.setText(f"Focal Error: ΔZ = {dz_err} planes")
-            self._sub_peak.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #dc2626; font-weight: 600;")
+            self._val_peak.setText(f"Z_c = {result.coarse_idx} (True Max: {true_max})")
+            self._val_peak.setStyleSheet("border: none; background: transparent; font-size: 15px; font-weight: 700; color: #0067c0;")
+            if dz_err == 0:
+                self._sub_peak.setText("Exact Global Peak Locked (ΔZ = 0)")
+                self._sub_peak.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #047857; font-weight: 600;")
+            else:
+                self._sub_peak.setText(f"Focal Error: ΔZ = {dz_err} planes")
+                self._sub_peak.setStyleSheet("border: none; background: transparent; font-size: 11px; color: #dc2626; font-weight: 600;")
 
     def _populate_telemetry(self, history: List[Dict[str, Any]]) -> None:
+        result = self._cached_run_result
+        show_fit = self._show_fit_cb.isChecked()
+        has_fit = result is not None and result.fit_ok and result.fit_coeffs is not None and show_fit
+        extra_rows = 1 if has_fit else 0
+        total_rows = len(history) + extra_rows
+
         self._table.blockSignals(True)
-        self._table.setRowCount(len(history))
+        self._table.setRowCount(total_rows)
 
         if not history:
             self._table.blockSignals(False)
@@ -673,16 +744,24 @@ class FocusCurveTab(QWidget):
 
         final_peak = history[-1].get("z", history[-1].get("idx", 0))
         unique_captures = len({h.get("z", h.get("idx", 0)) for h in history})
-        self._lbl_telemetry_peak.setText(f"Final Peak: Z* = {final_peak} ({unique_captures} unique captures)")
+        peak_str = f"Final Peak: Z_c = {final_peak}"
+        if has_fit:
+            peak_str += f" | Fine Z* = {result.fine_idx:.2f}"
+        self._lbl_telemetry_peak.setText(f"{peak_str} ({unique_captures} unique captures)")
 
         # Soft, clean Fluent pastel badges
         badge_styles = {
             "INIT": ("background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; font-weight: 600; font-size: 10.5px;"),
+            "PROBE": ("background: #f0f9ff; color: #0284c7; border: 1px solid #bae6fd; border-radius: 4px; padding: 2px 6px; font-weight: 600; font-size: 10.5px;"),
             "COARSE_PROBE": ("background: #f0f9ff; color: #0284c7; border: 1px solid #bae6fd; border-radius: 4px; padding: 2px 6px; font-weight: 600; font-size: 10.5px;"),
+            "CLIMB": ("background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 4px; padding: 2px 6px; font-weight: 600; font-size: 10.5px;"),
             "COARSE": ("background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 4px; padding: 2px 6px; font-weight: 600; font-size: 10.5px;"),
             "OVERSHOOT": ("background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; border-radius: 4px; padding: 2px 6px; font-weight: 600; font-size: 10.5px;"),
+            "BRACKET": ("background: #fffbeb; color: #b45309; border: 1px solid #fde68a; border-radius: 4px; padding: 2px 6px; font-weight: 600; font-size: 10.5px;"),
             "FINE": ("background: #fffbeb; color: #b45309; border: 1px solid #fde68a; border-radius: 4px; padding: 2px 6px; font-weight: 600; font-size: 10.5px;"),
+            "ESCAPE_PROBE": ("background: #fdf4ff; color: #9333ea; border: 1px solid #f0abfc; border-radius: 4px; padding: 2px 6px; font-weight: 600; font-size: 10.5px;"),
             "CONVERGED": ("background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; border-radius: 4px; padding: 2px 6px; font-weight: 600; font-size: 10.5px;"),
+            "QUADRATIC_FIT": ("background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; border-radius: 4px; padding: 2px 6px; font-weight: 700; font-size: 10.5px;"),
         }
 
         for row, rec in enumerate(history):
@@ -753,6 +832,64 @@ class FocusCurveTab(QWidget):
             it7 = QTableWidgetItem(str(rec.get("decision", "")))
             it7.setForeground(QColor("#1e293b"))
             self._table.setItem(row, 7, it7)
+
+        # Optional Concluding Quadratic Fit Row
+        if has_fit and result is not None:
+            fit_row = len(history)
+            it0 = QTableWidgetItem("FIT")
+            it0.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            it0.setForeground(QColor("#047857"))
+            font0 = it0.font()
+            font0.setBold(True)
+            it0.setFont(font0)
+            self._table.setItem(fit_row, 0, it0)
+
+            lbl_badge = QLabel(" QUADRATIC_FIT ")
+            lbl_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl_badge.setStyleSheet(badge_styles["QUADRATIC_FIT"])
+            bc = QWidget()
+            bl = QHBoxLayout(bc)
+            bl.setContentsMargins(4, 2, 4, 2)
+            bl.addWidget(lbl_badge)
+            self._table.setCellWidget(fit_row, 1, bc)
+
+            it2 = QTableWidgetItem(f"Z* = {result.fine_idx:.3f}")
+            it2.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            it2.setForeground(QColor("#059669"))
+            font2 = it2.font()
+            font2.setBold(True)
+            it2.setFont(font2)
+            self._table.setItem(fit_row, 2, it2)
+
+            it3 = QTableWidgetItem("Sub-frame")
+            it3.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            it3.setForeground(QColor("#64748b"))
+            self._table.setItem(fit_row, 3, it3)
+
+            it4 = QTableWidgetItem("—")
+            it4.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            it4.setForeground(QColor("#94a3b8"))
+            self._table.setItem(fit_row, 4, it4)
+
+            it5 = QTableWidgetItem(f"{result.fine_value:.4f}")
+            it5.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            it5.setForeground(QColor("#047857"))
+            font5 = it5.font()
+            font5.setBold(True)
+            it5.setFont(font5)
+            self._table.setItem(fit_row, 5, it5)
+
+            it6 = QTableWidgetItem("0.0000 (Vertex)")
+            it6.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            it6.setForeground(QColor("#059669"))
+            self._table.setItem(fit_row, 6, it6)
+
+            it7 = QTableWidgetItem(f"Parabolic vertex Z*={result.fine_idx:.3f} (WD={result.fine_wd_mm:.5f} mm, R²={result.fit_r2:.4f})")
+            it7.setForeground(QColor("#065f46"))
+            font7 = it7.font()
+            font7.setBold(True)
+            it7.setFont(font7)
+            self._table.setItem(fit_row, 7, it7)
 
         self._table.blockSignals(False)
 
@@ -875,6 +1012,14 @@ class FocusCurveTab(QWidget):
         meas_key = self._measure_combo.currentData() or "normalized_variance"
         return self._state.ground_truth_for(str(key), str(meas_key))
 
+    @Slot(bool)
+    def _on_show_fit_toggled(self, checked: bool) -> None:
+        if self._cached_run_result:
+            history = self._cached_run_result.extra.get("history", [])
+            self._populate_telemetry(history)
+            self._update_kpi_cards(self._cached_run_result)
+        self._redraw()
+
     @Slot()
     def _redraw(self) -> None:
         self._compute_btn.setEnabled(
@@ -892,6 +1037,7 @@ class FocusCurveTab(QWidget):
             results=results,
             replay_step=self._replay_step,
             show_global=self._show_global_cb.isChecked(),
+            show_fit=self._show_fit_cb.isChecked(),
         )
 
     @Slot()

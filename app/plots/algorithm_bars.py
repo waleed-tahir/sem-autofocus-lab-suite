@@ -32,8 +32,10 @@ HEADROOM = 1.25
 ALGO_SHORT_NAMES = {
     "global_scan": "Global",
     "gradient": "Gradient",
+    "gradient_modified": "Gradient (Mod)",
     "Global Scan (exhaustive)": "Global",
     "Gradient Search": "Gradient",
+    "Gradient Search (Stochastic Modified)": "Gradient (Mod)",
 }
 
 PANEL_COLORS = {
@@ -111,14 +113,13 @@ def draw_algorithm_bars(figure: Figure, results: Sequence[RunResult]) -> None:
 
     dataset = ordered[0].dataset_label
     measure = ordered[0].measure
+    finish_figure(figure)
     figure.suptitle(
         f"Algorithm Performance Comparison — {dataset} ({measure})",
-        fontsize=10.5,
+        fontsize=11.0,
         fontweight="bold",
         color="#1c1c1c",
-        y=0.98,
     )
-    finish_figure(figure)
 
 
 @dataclass(frozen=True)
