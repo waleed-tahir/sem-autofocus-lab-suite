@@ -24,6 +24,10 @@ from autofocus.algorithms.gradient_descent_search import (
     gradient_search,
     coarse_to_fine_gradient_search,
 )
+from autofocus.algorithms.gradient_descent_search_modified import (
+    gradient_descent_search_modified,
+    stochastic_gradient_search,
+)
 from autofocus.algorithms.quadratic_fit import (
     quadratic_fit,
     fit_quadratic_vertex,
@@ -114,6 +118,47 @@ def test_coarse_to_fine_gradient_search():
     print(f"  [PASS] Telemetry history contains all 6 phases: {set(phases)}")
 
 
+def test_stochastic_gradient_search():
+    print("\n--- 4. Testing Stochastic Gradient Search (gradient_descent_search_modified.py) ---")
+    TRUE_PEAK = 99
+    TOTAL_FRAMES = 200
+    MAX_IDX = TOTAL_FRAMES - 1
+
+    # Realistic noisy focus curve where local noise ripples trap deterministic search
+    def noisy_eval(idx: int, stride: int = 1, fmo: str | None = None) -> float:
+        base = 10.0 + 15.0 * np.exp(-((idx - TRUE_PEAK) ** 2) / (2 * 25.0 ** 2))
+        # High frequency noise ripples creating local maxima
+        ripple = 0.5 * np.sin(idx * 0.9) + 0.3 * np.cos(idx * 1.4)
+        return float(base + ripple)
+
+    # 1. Verify deterministic search gets trapped at local maximum Z=9
+    det_res = gradient_descent_search(
+        noisy_eval,
+        max_idx=MAX_IDX,
+        start_idx=0,
+        coarse_step=20,
+        decay=0.43,
+    )
+    assert det_res.best_idx < 30, f"Deterministic search unexpectedly escaped local trap: {det_res.best_idx}"
+    print(f"  [PASS] Deterministic search trapped at local maximum Z={det_res.best_idx} ({len(det_res.evals)} evals)")
+
+    # 2. Verify stochastic search with randomly modified decreasing factor escapes to global peak
+    for seed in [42, 101, 777]:
+        res = gradient_descent_search_modified(
+            noisy_eval,
+            max_idx=MAX_IDX,
+            start_idx=0,
+            coarse_step=20,
+            decay=0.43,
+            stochastic_jitter=0.25,
+            seed=seed,
+        )
+        best_idx, evals, history = res
+        assert abs(best_idx - TRUE_PEAK) <= 6, f"Expected global peak near {TRUE_PEAK}, got {best_idx}"
+        assert len(evals) < 30, f"Expected < 30 evaluations, got {len(evals)}"
+        print(f"  [PASS] Stochastic Seed {seed}: escaped local trap and locked onto peak {best_idx} in {len(evals)} captures")
+
+
 def test_quadratic_fit_synthetic():
     print("\n--- 4. Testing Quadratic Fit Vertex Refinement ---")
     TRUE_SUB_PEAK = 42.35
@@ -132,5 +177,6 @@ if __name__ == "__main__":
     test_focus_scores_synthetic()
     test_global_scan_synthetic()
     test_coarse_to_fine_gradient_search()
+    test_stochastic_gradient_search()
     test_quadratic_fit_synthetic()
     print("\n=== ALL TESTS PASSED SUCCESSFULLY ===")

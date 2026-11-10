@@ -26,6 +26,10 @@ from .gradient_descent_search import (
     gradient_ascent,
     verify_peak,
 )
+from .gradient_descent_search_modified import (
+    gradient_descent_search_modified,
+    stochastic_gradient_search,
+)
 from .quadratic_fit import (
     quadratic_fit,
     fit_quadratic_vertex,
@@ -44,6 +48,8 @@ __all__ = [
     "gradient_ascent_search",
     "gradient_search",
     "gradient_ascent",
+    "gradient_descent_search_modified",
+    "stochastic_gradient_search",
     "verify_peak",
     "SearchResult",
     # Fine refinement

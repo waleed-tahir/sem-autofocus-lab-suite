@@ -23,6 +23,7 @@ from app.core.run_result import RunResult, position_error
 from autofocus.algorithms import (
     global_scan_search,
     gradient_descent_search,
+    gradient_descent_search_modified,
     quadratic_fit,
 )
 
@@ -136,6 +137,22 @@ def _run_gradient(ctx: RunContext) -> SearchOutcome:
     return SearchOutcome(result, fine_stride=stride)
 
 
+def _run_gradient_modified(ctx: RunContext) -> SearchOutcome:
+    """Run the laboratory Stochastic Modified Gradient Ascent search."""
+    stride = ctx.param_int("stride")
+    result = gradient_descent_search_modified(
+        ctx.evaluator,
+        max_idx=ctx.max_idx,
+        start_idx=ctx.optional_index("start_idx") if ctx.params.get("start_idx", 0) >= 0 else 0,
+        coarse_step=ctx.param_int("coarse_step"),
+        decay=ctx.param_float("decay"),
+        adaptive=ctx.param_bool("adaptive"),
+        stride=stride,
+        fmo_name=ctx.measure.key,
+    )
+    return SearchOutcome(result, fine_stride=stride)
+
+
 # -------------------------------------------------------------- shared params
 
 
@@ -216,6 +233,22 @@ _SPECS: tuple[AlgorithmSpec, ...] = (
             _stride_param("stride", "Pixel stride", 1, "Subsampling of the frame. 1 is full resolution."),
         ),
         runner=_run_gradient,
+    ),
+    AlgorithmSpec(
+        key="gradient_modified",
+        display_name="Gradient Search (Stochastic Modified)",
+        description=(
+            "Modified coarse-to-fine gradient ascent with randomly modified decreasing factor "
+            "to escape local noise maxima and climb to the global focus peak."
+        ),
+        params=(
+            _START_IDX,
+            _COARSE_STEP,
+            _DECAY,
+            _ADAPTIVE,
+            _stride_param("stride", "Pixel stride", 1, "Subsampling of the frame. 1 is full resolution."),
+        ),
+        runner=_run_gradient_modified,
     ),
 )
 
