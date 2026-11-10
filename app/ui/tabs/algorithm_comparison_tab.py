@@ -1,7 +1,7 @@
-"""Tab 6: Algorithmic Trade-offs powered by modern interactive PyQtGraph charts.
+"""Tab 4: Algorithmic Trade-offs between Global Scan and Gradient Search.
 
-Displays anti-aliased GPU-accelerated bar graphs, KPI summary tiles,
-and the beam-time savings matrix with responsive styling.
+Displays side-by-side metric comparison bar charts, KPI summary tiles,
+and the beam-time savings matrix.
 """
 
 from __future__ import annotations
@@ -9,12 +9,14 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from matplotlib.figure import Figure
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QSplitter,
     QVBoxLayout,
@@ -22,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.core.run_result import RunResult
-from app.plots.algorithm_bars import frames_saved_table
+from app.plots.algorithm_bars import draw_algorithm_bars, frames_saved_table
 from app.ui.app_state import AppState
 from app.ui.tabs.common import (
     fill_table,
@@ -32,37 +34,47 @@ from app.ui.tabs.common import (
     refresh_dataset_combo,
     text_cell,
 )
-from app.ui.widgets.modern_plot_widget import ModernAlgorithmBarChart
+from app.ui.widgets.plot_canvas import PlotCanvas
 
 LOGGER = logging.getLogger(__name__)
 
 _COLUMNS = (
-    "Algorithm", "Frames read", "Baseline frames", "Frames saved (%)",
-    "Time (ms)", "Speed-up", "Error (um)",
+    "Algorithm",
+    "Frames read",
+    "Baseline frames",
+    "Frames saved (%)",
+    "Time (ms)",
+    "Speed-up",
+    "Error (µm)",
 )
 
 _TOOLTIPS = (
     "Search strategy.",
-    "Distinct frames this run read, fine fit included.",
-    "Frames an exhaustive scan reads.",
-    "Share of frames this search never had to acquire.",
-    "Wall-clock time of the search plus its refinement.",
-    "Baseline time divided by this run's time.",
-    "Distance from the reference peak, in micrometres.",
+    "Distinct frames evaluated during the search.",
+    "Frames read by the exhaustive baseline scan.",
+    "Percentage of frames avoided vs. exhaustive baseline.",
+    "Total wall-clock search time in milliseconds.",
+    "Baseline time divided by algorithm time.",
+    "Distance from reference ground truth peak in micrometres.",
 )
 
 
 class AlgorithmComparisonTab(QWidget):
-    """Modern PyQtGraph algorithmic trade-offs visualization."""
+    """Algorithmic trade-offs and speedup visualization."""
 
     def __init__(self, state: AppState, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._state = state
 
         self._dataset_combo = QComboBox()
-        self._chart = ModernAlgorithmBarChart()
+        self._canvas = PlotCanvas("algorithm_comparison")
         self._table = make_table(_COLUMNS, _TOOLTIPS)
         self._table.setMinimumHeight(110)
+
+        # Distribute columns evenly across the table width
+        self._table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+
+        self._canvas.set_draw_callback(self._draw_chart)
 
         self._build_layout()
         self._connect()
@@ -75,27 +87,29 @@ class AlgorithmComparisonTab(QWidget):
 
         # Top Control Row
         top_bar = QHBoxLayout()
-        top_bar.addWidget(QLabel("Target Image Set:"))
+        lbl_target = QLabel("Target Image Set:")
+        lbl_target.setStyleSheet("font-weight: 600; font-size: 11px; color: #424242;")
+        top_bar.addWidget(lbl_target)
         self._dataset_combo.setMinimumWidth(240)
         top_bar.addWidget(self._dataset_combo)
         top_bar.addStretch()
         layout.addLayout(top_bar)
 
-        # 4 KPI Tiles inspired by generated UI
+        # KPI Summary Tiles
         self._kpi_strip = self._build_kpi_strip()
         layout.addWidget(self._kpi_strip)
 
-        # Splitter: Modern PyQtGraph Bars on Top, Savings Matrix Below
+        # Splitter: Side-by-side Bar Charts on Top, Savings Matrix Below
         splitter = QSplitter(Qt.Orientation.Vertical)
-        splitter.addWidget(self._chart)
+        splitter.addWidget(self._canvas)
 
         table_group = QGroupBox("Beam Time && Exposure Savings Matrix")
         table_layout = QVBoxLayout(table_group)
-        table_layout.setContentsMargins(4, 8, 4, 4)
+        table_layout.setContentsMargins(6, 10, 6, 6)
         table_layout.addWidget(self._table)
         splitter.addWidget(table_group)
 
-        splitter.setSizes([260, 160])
+        splitter.setSizes([320, 160])
         layout.addWidget(splitter, stretch=1)
 
     def _build_kpi_strip(self) -> QWidget:
@@ -165,9 +179,13 @@ class AlgorithmComparisonTab(QWidget):
     @Slot()
     def _redraw(self) -> None:
         results = self._current_results()
-        self._chart.set_results(results)
+        self._canvas.redraw()
         self._fill_table(results)
         self._update_kpis(results)
+
+    def _draw_chart(self, figure: Figure) -> None:
+        results = self._current_results()
+        draw_algorithm_bars(figure, results)
 
     def _update_kpis(self, results: list[RunResult]) -> None:
         if not results:
@@ -209,3 +227,7 @@ class AlgorithmComparisonTab(QWidget):
             for row in rows
         ]
         fill_table(self._table, cells)
+
+    @property
+    def canvases(self) -> list[tuple[str, PlotCanvas]]:
+        return [("Algorithm Comparison", self._canvas)]

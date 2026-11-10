@@ -177,7 +177,10 @@ class MainWindow(QMainWindow):
         self._update_status()
 
     def all_canvases(self) -> list[tuple[str, PlotCanvas]]:
-        return [("Focus Curve", self.focus_curve_tab._curve_canvas)]
+        return [
+            ("Focus Curve", self.focus_curve_tab._curve_canvas),
+            ("Algorithm Comparison", self.algo_comparison_tab._canvas),
+        ]
 
     def _show_about(self) -> None:
         QMessageBox.about(

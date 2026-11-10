@@ -1,13 +1,9 @@
-"""Cost against accuracy: what each algorithm paid and what it got.
+"""Cost against accuracy: Global Scan vs Gradient Search.
 
-Three panels answer the three questions of the comparison: how many frames did
-the search read, how long did it take, and how far from the true peak did it
-land.  The panels are stacked rather than put on one pair of axes, because
-frames, milliseconds and micrometres share no scale.
-
-Main contents:
-    * :func:`draw_algorithm_bars` -- the three-panel comparison for one image set.
-    * :func:`frames_saved_table` -- the same savings as rows for the table.
+Three side-by-side panels answer the core questions of the comparison:
+1. Frames read (beam time / exposure cost)
+2. Convergence time (ms)
+3. Position error (um vs reference peak)
 """
 
 from __future__ import annotations
@@ -30,120 +26,104 @@ from app.plots.style import (
     style_axes,
 )
 
-#: Width of a bar as a share of its slot, leaving the 2 px surface gap.
-BAR_WIDTH = 0.68
+BAR_WIDTH = 0.50
+HEADROOM = 1.25
 
-#: Headroom above the tallest bar, so the value labels never touch the frame.
-HEADROOM = 1.22
+ALGO_SHORT_NAMES = {
+    "global_scan": "Global",
+    "gradient": "Gradient",
+    "Global Scan (exhaustive)": "Global",
+    "Gradient Search": "Gradient",
+}
+
+PANEL_COLORS = {
+    "frames": ("#0067c0", "#0078d4"),  # Fluent Blue
+    "time": ("#008272", "#107c41"),    # Fluent Green
+    "error": ("#d83b01", "#b83400"),   # Fluent Orange/Red
+}
 
 
 def draw_algorithm_bars(figure: Figure, results: Sequence[RunResult]) -> None:
-    """Draw frames read, run time and position error per algorithm.
+    """Draw 3 side-by-side panels: frames read, run time, and position error.
 
     Args:
-        figure: Figure to draw on; it is cleared first.
-        results: Runs on one image set, at most one per algorithm.
+        figure: Matplotlib Figure to draw on.
+        results: Runs on the active dataset.
     """
     figure.clear()
     if not results:
         empty_message(
             figure,
-            "No runs for this image set yet.\nRun some algorithms on the Run tab.",
+            "No runs for this image set yet.\nRun Global Scan and Gradient Search on the Run tab.",
         )
         return
 
-    ordered = sorted(results, key=lambda r: r.algorithm)
-    labels = [_wrap(result.algorithm) for result in ordered]
-    colors = [algorithm_style(result.algorithm_key).color for result in ordered]
+    # Order: Baseline first, then Gradient search
+    ordered = sorted(results, key=lambda r: 0 if r.algorithm_key == BASELINE_KEY else 1)
+    labels = [ALGO_SHORT_NAMES.get(r.algorithm_key, r.algorithm[:10]) for r in ordered]
     positions = np.arange(len(ordered), dtype=np.float64)
 
     panels = (
-        ("Frames read", [float(r.frames_evaluated) for r in ordered], "frames", 0),
-        ("Run time", [r.elapsed_ms for r in ordered], "ms", 1),
-        ("Position error", [r.error_um for r in ordered], "um", 2),
+        ("Frames Read (Lower = Better)", [float(r.frames_evaluated) for r in ordered], "frames", 0, "frames"),
+        ("Convergence Time (ms)", [r.elapsed_ms for r in ordered], "ms", 0, "time"),
+        ("Error vs. Reference (µm)", [r.coarse_error_um if r.coarse_error_um is not None else 0.0 for r in ordered], "µm", 2, "error"),
     )
 
-    axes = figure.subplots(3, 1, sharex=True)
-    for (title, values, unit, decimals), ax in zip(panels, axes, strict=True):
-        _draw_panel(ax, positions, values, colors, title, unit, decimals)
+    axes = figure.subplots(1, 3)
 
-    axes[-1].set_xticks(positions)
-    axes[-1].set_xticklabels(labels, fontsize=8.0, color=INK_SECONDARY)
+    for (title, values, unit, decimals, key), ax in zip(panels, axes, strict=True):
+        heights = [0.0 if value is None or math.isnan(value) else float(value) for value in values]
+        primary_color = PANEL_COLORS[key][0]
+
+        # Draw bars
+        bars = ax.bar(
+            positions,
+            heights,
+            width=BAR_WIDTH,
+            color=primary_color,
+            edgecolor="#ffffff",
+            linewidth=1.2,
+            zorder=3,
+        )
+
+        # Draw value labels above each bar
+        for pos, height, raw in zip(positions, heights, values, strict=True):
+            text = "n/a" if raw is None or math.isnan(raw) else f"{raw:.{decimals}f}"
+            ax.annotate(
+                text,
+                xy=(pos, height),
+                xytext=(0.0, 4.0),
+                textcoords="offset points",
+                ha="center",
+                va="bottom",
+                fontsize=8.5,
+                fontweight="bold",
+                color="#1c1c1c",
+            )
+
+        tallest = max(heights) if heights else 0.0
+        ax.set_ylim(0.0, (tallest * HEADROOM) if tallest > 0.0 else 1.0)
+        ax.set_xlim(-0.6, len(ordered) - 0.4)
+        ax.set_xticks(positions)
+        ax.set_xticklabels(labels, fontsize=9.0, fontweight="bold", color="#424242")
+        style_axes(ax, title=title, ylabel=unit)
+        ax.grid(axis="x", visible=False)
 
     dataset = ordered[0].dataset_label
     measure = ordered[0].measure
     figure.suptitle(
-        f"Algorithm comparison - {dataset} ({measure})",
-        fontsize=11.0, fontweight="bold", color="#0b0b0b",
+        f"Algorithm Performance Comparison — {dataset} ({measure})",
+        fontsize=10.5,
+        fontweight="bold",
+        color="#1c1c1c",
+        y=0.98,
     )
     finish_figure(figure)
 
 
-def _draw_panel(
-    ax,
-    positions: np.ndarray,
-    values: Sequence[float],
-    colors: Sequence[str],
-    title: str,
-    unit: str,
-    decimals: int,
-) -> None:
-    """Draw one of the three bar panels, with a value label on every bar.
-
-    The labels are what satisfies the readability rule for the lighter palette
-    colours: the number is always written out, never only encoded as a height.
-
-    Args:
-        ax: Axes to draw on.
-        positions: X slot of every bar.
-        values: Bar heights.
-        colors: Bar colours, one per algorithm.
-        title: Panel title.
-        unit: Unit shown on the y axis and after each label.
-        decimals: Digits of the value labels.
-    """
-    heights = [0.0 if value is None or math.isnan(value) else float(value) for value in values]
-    ax.bar(
-        positions, heights,
-        width=BAR_WIDTH, color=list(colors), edgecolor=SURFACE, linewidth=1.5, zorder=3,
-    )
-
-    for position, height, raw in zip(positions, heights, values, strict=True):
-        text = "n/a" if raw is None or math.isnan(raw) else f"{raw:.{decimals}f}"
-        ax.annotate(
-            text,
-            xy=(position, height), xytext=(0.0, 3.0), textcoords="offset points",
-            ha="center", va="bottom", fontsize=8.0, color=INK_SECONDARY,
-        )
-
-    tallest = max(heights) if heights else 0.0
-    ax.set_ylim(0.0, (tallest * HEADROOM) if tallest > 0.0 else 1.0)
-    style_axes(ax, title=title, ylabel=unit)
-    ax.grid(axis="x", visible=False)  # Vertical grid lines add nothing to bars.
-
-
-def _wrap(name: str) -> str:
-    """Break a long algorithm name over two lines so the ticks stay readable."""
-    if len(name) <= 18:
-        return name
-    words = name.split()
-    middle = len(words) // 2 or 1
-    return " ".join(words[:middle]) + "\n" + " ".join(words[middle:])
-
-
 @dataclass(frozen=True)
 class SavingRow:
-    """How much one algorithm saved against the exhaustive scan.
-
-    Attributes:
-        algorithm: Display name of the algorithm.
-        frames_evaluated: Distinct frames this run read.
-        baseline_frames: Frames the exhaustive scan read.
-        saved_percent: Share of frames avoided, in percent.
-        elapsed_ms: Run time in milliseconds.
-        speedup: Baseline time divided by this run's time.
-        error_um: Position error in micrometres.
-    """
+    """How much one algorithm saved against the exhaustive scan."""
 
     algorithm: str
     frames_evaluated: int
@@ -155,18 +135,7 @@ class SavingRow:
 
 
 def frames_saved_table(results: Sequence[RunResult]) -> list[SavingRow]:
-    """Turn the runs of one image set into savings rows.
-
-    The baseline is the exhaustive scan when it was run, otherwise the frame
-    count of the stack, which is what an exhaustive scan would have read.
-
-    Args:
-        results: Runs on one image set.
-
-    Returns:
-        One row per run, ordered by rising frame count so the cheapest search
-        comes first.
-    """
+    """Turn the runs of one image set into savings rows."""
     if not results:
         return []
 
@@ -188,7 +157,7 @@ def frames_saved_table(results: Sequence[RunResult]) -> list[SavingRow]:
                 if not math.isnan(baseline_ms) and result.elapsed_ms > 0.0
                 else float("nan")
             ),
-            error_um=result.error_um,
+            error_um=result.coarse_error_um if result.coarse_error_um is not None else float("nan"),
         )
         for result in results
     ]
