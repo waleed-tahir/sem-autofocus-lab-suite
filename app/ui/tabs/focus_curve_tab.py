@@ -508,7 +508,7 @@ class FocusCurveTab(QWidget):
             )
 
         # Check if algorithm is gradient: execute live with current slider settings
-        if algo_key == "gradient":
+        if algo_key in ("gradient", "gradient_modified"):
             z0 = self._slider_z0.value()
             coarse_step = self._slider_step.value()
             decay = self._slider_decay.value() / 100.0
@@ -516,7 +516,7 @@ class FocusCurveTab(QWidget):
 
             meas = require_measure(str(meas_key))
             ev = Evaluator(dataset, meas)
-            algo_spec = require_algo("gradient")
+            algo_spec = require_algo(str(algo_key))
             params = {
                 "start_idx": z0,
                 "coarse_step": coarse_step,

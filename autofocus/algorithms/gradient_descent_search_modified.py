@@ -303,10 +303,11 @@ def gradient_descent_search_modified(
 
     # 5. STOCHASTIC ESCAPE FROM LOCAL MAXIMA
     # If trapped in a local noise peak, test exploratory stochastic jumps with randomized factor
-    for attempt in range(max_escape_attempts):
-        rand_factor = rng.uniform(0.30, 0.75)
+    for attempt in range(max_escape_attempts + 1):
+        rand_factor = rng.uniform(0.75, 2.25)
         escape_step = int(round(coarse_step * rand_factor))
-        for escape_dir in [1, -1]:
+        escaped = False
+        for escape_dir in [direction, -direction]:
             esc_z = best_z + escape_dir * escape_step
             if 0 <= esc_z <= max_idx and esc_z not in evals:
                 dz_val = esc_z - history[-1]["z"]
@@ -318,7 +319,36 @@ def gradient_descent_search_modified(
                 )
                 if s_eval > best_s:
                     best_z, best_s = z_eval, s_eval
-                    history[-1]["decision"] = f"Stochastic jump escaped local maximum! New Best Z* = {best_z} (NV = {best_s:.3f})"
+                    history[-1]["decision"] = f"Stochastic jump escaped local maximum! New Best Z* = {best_z} (NV = {best_s:.3f}). Resuming coarse climb."
+                    # Resume coarse climb in this direction from the escaped focal position
+                    z_curr = best_z
+                    direction = escape_dir
+                    while True:
+                        next_z = max(0, min(max_idx, z_curr + direction * coarse_step))
+                        if next_z == z_curr:
+                            break
+                        dz_c = next_z - z_curr
+                        ze_c, se_c = probe(next_z, "COARSE", f"Coarse step ({dz_c:+d}) along ascending gradient", dz_override=dz_c)
+                        if se_c > best_s:
+                            best_z, best_s = ze_c, se_c
+                            z_curr = ze_c
+                        else:
+                            history[-1]["phase"] = "OVERSHOOT"
+                            history[-1]["decision"] = f"Overshot peak! NV dropped ({se_c:.3f} < {best_s:.3f}) -> Reverse & Refine"
+                            break
+                    escaped = True
+                    break
+        if escaped:
+            # After resuming climb and overshooting the global peak, run final unit refinement
+            for offset in [-1, 1]:
+                cand_z = best_z + offset
+                if 0 <= cand_z <= max_idx and cand_z not in evals:
+                    dz_val = cand_z - history[-1]["z"]
+                    z_eval, s_eval = probe(cand_z, "FINE", f"Bracketing check at Z={cand_z}", dz_override=dz_val)
+                    if s_eval > best_s:
+                        best_z, best_s = z_eval, s_eval
+                        history[-1]["decision"] = f"Refinement improved peak! New Best Z* = {best_z} (NV = {best_s:.3f})"
+            break
 
     # 6. CONVERGED PHASE
     history[-1]["phase"] = "CONVERGED"
