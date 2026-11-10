@@ -74,15 +74,8 @@ def gradient_descent_search(
     adaptive: bool = False,
     stride: int = 1,
     fmo_name: Optional[str] = None,
-    probe_step: int = 2,
-    # Backward compatibility parameters
+    probe_step: int = 5,
     alpha: Optional[float] = None,
-    delta: Optional[int] = None,
-    max_iter: Optional[int] = None,
-    verify_dist: Optional[int] = None,
-    verify_k: Optional[float] = None,
-    max_restarts: Optional[int] = None,
-    verify_peaks: Optional[bool] = None,
 ) -> SearchResult:
     """
     Coarse-to-Fine Gradient Ascent Autofocus Search.
@@ -93,7 +86,7 @@ def gradient_descent_search(
         start_idx: Initial plane position Z_0 (default: 12).
         coarse_step: Coarse ascent step size ΔZ (default: 14 planes).
         decay: Step decay factor for fine refinement (default: 0.50).
-        adaptive: Scale coarse step dynamically by local slope |d(NV)/dZ|.
+        adaptive: Scale coarse step dynamically by local slope d(NV)/dZ.
         stride: Pixel subsampling stride (default: 1).
         fmo_name: Focus measure operator key.
         probe_step: Initial probe step size ΔZ_probe to measure slope (default: 2 planes).

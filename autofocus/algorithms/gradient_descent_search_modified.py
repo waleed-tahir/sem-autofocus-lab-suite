@@ -73,14 +73,7 @@ def gradient_descent_search_modified(
     stochastic_jitter: float = 0.25,
     max_escape_attempts: int = 2,
     seed: Optional[int] = None,
-    # Backward compatibility parameters
-    alpha: Optional[float] = None,
-    delta: Optional[int] = None,
-    max_iter: Optional[int] = None,
-    verify_dist: Optional[int] = None,
-    verify_k: Optional[float] = None,
-    max_restarts: Optional[int] = None,
-    verify_peaks: Optional[bool] = None,
+    alpha: Optional[float] = None
 ) -> SearchResult:
     """
     Stochastic Coarse-to-Fine Gradient Ascent Autofocus Search.
@@ -123,15 +116,7 @@ def gradient_descent_search_modified(
     history: List[Dict[str, Any]] = []
     evals: Dict[int, float] = {}
 
-    def _get_mean(idx: int) -> float:
-        """Extract mean image intensity if available from the evaluator/dataset."""
-        if hasattr(eval_func, "dataset"):
-            try:
-                frame = eval_func.dataset.frame(idx)
-                return float(np.mean(frame))
-            except Exception:
-                pass
-        return 108.85
+
 
     def _eval(idx: int) -> float:
         try:
@@ -161,7 +146,6 @@ def gradient_descent_search_modified(
             grad = 0.0
             dz = 0 if dz_override is None else dz_override
 
-        mean_val = _get_mean(z)
         step_num = len(history) + 1
 
         record = {
@@ -170,7 +154,6 @@ def gradient_descent_search_modified(
             "idx": z,
             "z": z,
             "step_dz": dz,
-            "mean": mean_val,
             "score": val,
             "gradient": grad,
             "decision": decision,
