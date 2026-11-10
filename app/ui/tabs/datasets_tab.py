@@ -194,7 +194,6 @@ class DatasetsTab(QWidget):
         layout.setSpacing(8)
         layout.addLayout(top_row)
         layout.addWidget(self._table, stretch=1)
-        layout.addWidget(self._build_settings_group())
         return panel
 
     def _build_browser_panel(self) -> QWidget:
@@ -213,44 +212,18 @@ class DatasetsTab(QWidget):
         slider_row.addWidget(self._slider, stretch=1)
         slider_row.addWidget(self._next_frame_btn)
 
-        hint = QLabel(
-            "The focus score is computed live using the measure selected in the Run tab."
-        )
-        hint.setStyleSheet("font-size: 11px; color: #5e5e5e; padding-top: 2px;")
-        hint.setWordWrap(True)
-
         layout = QVBoxLayout(group)
         layout.setContentsMargins(10, 14, 10, 10)
         layout.setSpacing(6)
         layout.addWidget(self._viewer, stretch=1)
         layout.addLayout(slider_row)
         layout.addWidget(self._frame_info)
-        layout.addWidget(hint)
 
         panel = QWidget()
         outer = QVBoxLayout(panel)
         outer.setContentsMargins(4, 4, 4, 4)
         outer.addWidget(group)
         return panel
-
-    def _build_settings_group(self) -> QGroupBox:
-        """The working-distance settings row."""
-        group = QGroupBox("Working distance and loading")
-        row = QHBoxLayout(group)
-        row.addWidget(QLabel("Start:"))
-        row.addWidget(self._start_mm)
-        row.addSpacing(12)
-        row.addWidget(QLabel("Step:"))
-        row.addWidget(self._step_um)
-        row.addSpacing(12)
-        row.addWidget(QLabel("Direction:"))
-        row.addWidget(self._direction)
-        row.addSpacing(12)
-        row.addWidget(self._prefer_file)
-        row.addSpacing(12)
-        row.addWidget(self._preload)
-        row.addStretch(1)
-        return group
 
     def _connect(self) -> None:
         """Wire the widgets and the shared state together."""
