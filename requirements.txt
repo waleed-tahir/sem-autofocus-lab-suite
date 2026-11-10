@@ -5,7 +5,6 @@ PySide6>=6.6          # Qt widgets, the worker threads and the signals.
 numpy>=1.26           # Arrays, the polynomial fit and the noise generator.
 opencv-python>=4.8    # Image decoding and the Laplacian focus measures.
 matplotlib>=3.8       # The embedded plots and the 300 dpi PNG export.
-pyqtgraph>=0.13       # High-performance GPU-accelerated plots and bar charts.
 scipy>=1.11           # Curve fitting routines.
 Pillow>=10.0          # Image handling.
 pyinstaller>=6.0      # Standalone executable packaging.

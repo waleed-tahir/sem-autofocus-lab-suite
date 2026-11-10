@@ -8,9 +8,6 @@ block_cipher = None
 
 # Hidden imports for dynamic/lazy modules
 hiddenimports = [
-    'pyqtgraph',
-    'pyqtgraph.graphicsItems.ViewBox.axisCtrlTemplate_pyside6',
-    'pyqtgraph.graphicsItems.PlotItem.plotConfigTemplate_pyside6',
     'scipy',
     'scipy.optimize',
     'cv2',
@@ -18,7 +15,6 @@ hiddenimports = [
     'matplotlib.backends.backend_qtagg',
     'app.core.disk_cache',
 ]
-hiddenimports += collect_submodules('pyqtgraph')
 
 # Data files: include app assets, icon, and sample SEM datasets
 datas = [
