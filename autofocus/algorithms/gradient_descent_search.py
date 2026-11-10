@@ -74,7 +74,7 @@ def gradient_descent_search(
     adaptive: bool = False,
     stride: int = 1,
     fmo_name: Optional[str] = None,
-    probe_step: int = 5,
+    probe_step: int = 2,
     alpha: Optional[float] = None,
 ) -> SearchResult:
     """

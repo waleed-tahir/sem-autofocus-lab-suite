@@ -15,14 +15,12 @@ from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
-    QDoubleSpinBox,
     QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QProgressBar,
     QPushButton,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -30,7 +28,7 @@ from PySide6.QtWidgets import (
 from app.core.algorithms import (
     ALGORITHMS,
     DEFAULT_ALGORITHM_KEY,
-    MIN_HALF_WINDOW,
+    DEFAULT_HALF_WINDOW,
     algorithm_keys,
 )
 from app.core.experiment import AlgorithmRunJob, JobOutcome, RunRequest
@@ -47,18 +45,6 @@ from app.ui.tabs.common import (
 from app.ui.widgets.param_form import ParamForm
 
 LOGGER = logging.getLogger(__name__)
-
-_NOISE_RANGE = (0.0, 50.0)
-_REPEAT_RANGE = (1, 20)
-
-
-def _labelled_row(label: str, widget: QWidget) -> QHBoxLayout:
-    row = QHBoxLayout()
-    lbl = QLabel(label)
-    lbl.setStyleSheet("color: #5e5e5e; font-size: 11px;")
-    row.addWidget(lbl)
-    row.addWidget(widget)
-    return row
 
 
 def _button_row(left: QPushButton, right: QPushButton) -> QHBoxLayout:
@@ -244,24 +230,6 @@ class RunTab(QWidget):
         self._apply_fit = QCheckBox("Apply quadratic parabola fit")
         self._apply_fit.setChecked(True)
 
-        self._half_window = QSpinBox()
-        self._half_window.setRange(MIN_HALF_WINDOW, 100)
-        self._half_window.setValue(12)
-        self._half_window.setSuffix(" frames")
-
-        self._noise_sigma = QDoubleSpinBox()
-        self._noise_sigma.setRange(*_NOISE_RANGE)
-        self._noise_sigma.setDecimals(2)
-        self._noise_sigma.setSingleStep(0.5)
-
-        self._seed = QSpinBox()
-        self._seed.setRange(0, 1_000_000)
-        self._seed.setValue(0)
-
-        self._repeats = QSpinBox()
-        self._repeats.setRange(*_REPEAT_RANGE)
-        self._repeats.setValue(1)
-
         self._run_button = QPushButton("Start Search")
         self._run_button.setObjectName("primaryButton")
         self._run_button.setProperty("accent", True)
@@ -319,23 +287,19 @@ class RunTab(QWidget):
         box_p.addWidget(self._algorithm_hint)
         box_p.addWidget(self._param_form)
 
-        # 5. Execution Options Content
+        # 5. Quadratic Fit Content
         w_opt = QWidget()
         box_opt = QVBoxLayout(w_opt)
-        box_opt.setContentsMargins(0, 2, 0, 2)
+        box_opt.setContentsMargins(0, 4, 0, 4)
         box_opt.setSpacing(4)
         box_opt.addWidget(self._apply_fit)
-        box_opt.addLayout(_labelled_row("Fit half window:", self._half_window))
-        box_opt.addLayout(_labelled_row("Noise sigma (σ):", self._noise_sigma))
-        box_opt.addLayout(_labelled_row("Random seed:", self._seed))
-        box_opt.addLayout(_labelled_row("Repeats (mean):", self._repeats))
 
         # Accordion Sections (collapsed by default, mutually exclusive)
         self._sec_ds = AccordionSection("Target Image Set", w_ds)
         self._sec_algo = AccordionSection("Search Algorithms", w_algo)
         self._sec_measure = AccordionSection("Focus Measure", w_m)
         self._sec_params = AccordionSection("Algorithm Parameters", w_p)
-        self._sec_opts = AccordionSection("Execution Options", w_opt)
+        self._sec_opts = AccordionSection("Quadratic Fit", w_opt)
 
         self._sections = [
             self._sec_ds,
@@ -382,7 +346,6 @@ class RunTab(QWidget):
         self._measure_combo.currentIndexChanged.connect(self._update_measure_summary)
         self._param_target.currentIndexChanged.connect(self._update_param_summary)
         self._apply_fit.toggled.connect(self._update_opts_summary)
-        self._noise_sigma.valueChanged.connect(self._update_opts_summary)
         self._all_algorithms_button.clicked.connect(self._update_algo_summary)
         self._no_algorithms_button.clicked.connect(self._update_algo_summary)
 
@@ -524,10 +487,10 @@ class RunTab(QWidget):
             measure_key=str(self._measure_combo.currentData()),
             params={key: dict(self._params.get(key, {})) for key in algorithms},
             apply_fit=self._apply_fit.isChecked(),
-            half_window=self._half_window.value(),
-            noise_sigma=self._noise_sigma.value(),
-            seed=self._seed.value(),
-            repeats=self._repeats.value(),
+            half_window=DEFAULT_HALF_WINDOW,
+            noise_sigma=0.0,
+            seed=None,
+            repeats=1,
         )
 
     def selected_algorithm_keys(self) -> list[str]:
